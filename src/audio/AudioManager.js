@@ -1,5 +1,3 @@
-import { WEAPONS } from '../../shared/config.js';
-
 export class AudioManager {
   constructor(settings) {
     this.settings = settings;
@@ -81,9 +79,8 @@ export class AudioManager {
     source.stop(c.currentTime + duration);
   }
   shoot(id, position) {
-    const w = WEAPONS[id],
-      heavy = id === 'iron' || id === 'lynx',
-      suppressed = id === 'spectre';
+    const heavy = id === 'iron' || id === 'lynx' || id === 'scout' || id === 'desertEagle',
+      suppressed = id === 'spectre' || id === 'pbs1';
     this.sound({
       noise: true,
       duration: suppressed ? 0.08 : heavy ? 0.27 : 0.13,
@@ -94,7 +91,7 @@ export class AudioManager {
     this.sound({
       frequency: heavy ? 100 : 180,
       duration: 0.1,
-      volume: 0.2,
+      volume: suppressed ? 0.08 : 0.2,
       type: 'triangle',
       end: 35,
       position,
@@ -114,7 +111,10 @@ export class AudioManager {
       }
     } else if (e.type === 'empty' && e.player === local)
       this.sound({ frequency: 240, duration: 0.03, type: 'square', volume: 0.09 });
-    else if (e.type === 'hit' && e.player === local)
+    else if (e.type === 'knife' && e.player === local) {
+      this.sound({ noise: true, duration: 0.16, volume: 0.1, filter: 1800 });
+      if (e.hit) this.sound({ noise: true, duration: 0.1, volume: 0.16, filter: 470 });
+    } else if (e.type === 'hit' && e.player === local)
       this.sound({ frequency: e.head ? 1450 : 800, duration: 0.045, volume: 0.065, end: 500 });
     else if (e.type === 'damage' && e.player === local)
       this.sound({ frequency: 80, duration: 0.2, volume: 0.22, type: 'triangle', end: 35 });

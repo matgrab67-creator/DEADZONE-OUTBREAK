@@ -12,6 +12,9 @@
     "test": "node --test tests/*.test.js",
     "test:browser": "node tests/browser.mjs",
     "test:production": "node tests/production.mjs",
+    "test:models": "node tests/models-browser.mjs",
+    "test:knife-reference": "node tests/knife-reference-browser.mjs",
+    "test:features": "node tests/features-browser.mjs",
     "format": "prettier --write src shared server scripts tests *.js *.json *.html README.md"
   },
   "dependencies": {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { cameraPitch } from '../player/PointerLook.js';
 import { Renderer } from '../rendering/Renderer.js';
 import { MapBuilder } from '../world/MapBuilder.js';
 import { ZombieRenderer } from '../enemies/ZombieRenderer.js';
@@ -7,6 +8,7 @@ import { Effects } from '../rendering/Effects.js';
 import { AudioManager } from '../audio/AudioManager.js';
 import { InputManager } from './InputManager.js';
 import { NetworkManager } from '../multiplayer/NetworkManager.js';
+import { ModelPreview } from '../ui/ModelPreview.js';
 import { UI, readSettings } from '../ui/UI.js';
 import { initPhysics, Physics } from '../../shared/Physics.js';
 import { Simulation } from '../../shared/Simulation.js';
@@ -30,8 +32,13 @@ export class Game {
     this.sim = null;
     this.id = 'solo';
     this.recoil = 0;
+    this.landing = 0;
+    this.wasGrounded = true;
+    this.cameraTargetId = null;
     this.interactAt = 0;
     this.gameEnded = false;
+    this.knifeEquipped = false;
+    this.knifeFireHeld = false;
     this.pending = [];
     this.snapshots = [];
     this.predicted = null;
@@ -46,6 +53,7 @@ export class Game {
       this.map = new MapBuilder(this.view.scene);
       this.zombies = new ZombieRenderer(this.view.scene);
       this.weapon = new WeaponView(this.view.viewmodelScene);
+      this.preview = new ModelPreview(this.ui.el['index-canvas']);
       this.effects = new Effects(this.view.scene);
       this.input.sensitivity = this.settings.sensitivity * 0.001;
       this.view.renderer.compile(this.view.scene, this.view.camera);
@@ -63,6 +71,9 @@ export class Game {
   bind() {
     this.ui.on = {
       solo: () => this.startSolo(),
+      buy: (id) => this.action({ type: 'shopBuy', item: id }),
+      inspectEntry: (kind, id) => this.preview?.show(kind, id),
+      closeEntry: () => this.preview?.clear(),
       resume: () => this.resume(),
       quit: () => this.quit(),
       restart: () =>
@@ -70,6 +81,7 @@ export class Game {
           ? this.startSolo()
           : this.network.request('start').catch((e) => this.ui.notice(e.message)),
       settings: (s) => {
+        this.settings = s;
         this.input.sensitivity = s.sensitivity * 0.001;
         this.view?.applySettings(s);
         this.audio.volume(s.volume);
@@ -99,6 +111,10 @@ export class Game {
         this.ui.pause(this.mode === 'multiplayer');
         return;
       }
+      if (action.type === 'shop') {
+        this.openShop();
+        return;
+      }
       this.action(action);
     };
     this.input.onLockChange = (locked) => {
@@ -108,7 +124,7 @@ export class Game {
         this.ui.hideModal();
       } else {
         this.paused = true;
-        this.ui.pause(this.mode === 'multiplayer');
+        if (this.ui.activeModal !== 'shop') this.ui.pause(this.mode === 'multiplayer');
       }
     };
     this.network.addEventListener('lobby', (e) => this.ui.lobby(e.detail, this.network.id));
@@ -128,6 +144,7 @@ export class Game {
       this.network.disconnect();
       this.sim?.dispose();
       this.prediction?.dispose();
+      this.preview?.dispose();
     });
   }
   lobbyError(error) {
@@ -174,10 +191,14 @@ export class Game {
     this.snapshots = [];
     this.recoil = 0;
     this.gameEnded = false;
+    this.knifeEquipped = false;
+    this.knifeFireHeld = false;
     this.interactAt = 0;
     this.weapon.reloadDuration = 1;
+    this.weapon.reset();
     this.landing = 0;
     this.wasGrounded = true;
+    this.cameraTargetId = null;
     this.damageDirectionUntil = 0;
     this.ui.el['direction-indicator'].style.opacity = 0;
   }
@@ -222,6 +243,14 @@ export class Game {
     this.audio.start();
     this.input.lock();
   }
+  openShop() {
+    const player = this.state?.players.find((p) => p.id === this.id);
+    if (!player || player.downed || player.eliminated || this.gameEnded) return;
+    this.paused = true;
+    this.input.clear();
+    this.ui.showShop(this.state, player, this.mode === 'multiplayer');
+    document.exitPointerLock?.();
+  }
   quit() {
     this.mode = 'menu';
     this.input.enabled = false;
@@ -234,6 +263,17 @@ export class Game {
     this.audio.stop();
   }
   action(action) {
+    if (action.type === 'inspect') {
+      this.weapon.inspect();
+      return;
+    }
+    if (action.type === 'knifeToggle') {
+      this.knifeEquipped = !this.knifeEquipped;
+      this.knifeFireHeld = false;
+      this.ui.notice(this.knifeEquipped ? 'KNIFE EQUIPPED' : 'FIREARM EQUIPPED');
+      return;
+    }
+    if (action.type === 'switch' || action.type === 'shopBuy') this.knifeEquipped = false;
     if (this.mode === 'solo') this.sim.action(this.id, action);
     else this.network.action(action);
   }
@@ -298,7 +338,7 @@ export class Game {
       if (e.type === 'shot') {
         this.effects.shot(e);
         if (e.player === this.id) {
-          this.weapon.shoot();
+          this.weapon.shoot(e);
           const w = WEAPONS[e.weapon];
           this.recoil = Math.min(
             0.14,
@@ -308,6 +348,7 @@ export class Game {
           this.view.flash.intensity = e.weapon === 'spectre' ? 3 : 22;
         }
       }
+      if (e.type === 'knife' && e.player === this.id) this.weapon.slash();
       if (e.type === 'reload' && e.player === this.id) this.weapon.reload(e.duration);
       if (e.type === 'explosion') this.effects.explosion(e);
       if (e.type === 'grenade') this.effects.grenade(e, this.time);
@@ -331,6 +372,7 @@ export class Game {
         name: 'UNLOCK SECTOR',
       })),
       ...STATIONS,
+      ...(this.state.blueprints || []),
       ...COLLECTIBLES.filter((c) => !this.state.collected.includes(c.id)).map((c) => ({
         ...c,
         type: 'log',
@@ -392,8 +434,17 @@ export class Game {
       this.recoil = THREE.MathUtils.damp(this.recoil, 0, this.input.fire ? 3 : 9, dt);
       this.accumulator += dt;
       let frameInput = this.input.sample(!this.paused && !this.gameEnded);
-      frameInput.pitch = Math.max(-1.48, Math.min(1.48, frameInput.pitch + this.recoil));
+      frameInput.pitch = cameraPitch(frameInput.pitch, this.recoil);
+      if (this.knifeEquipped && frameInput.fire && !this.knifeFireHeld)
+        this.action({ type: 'knifeAttack' });
+      this.knifeFireHeld = this.knifeEquipped && frameInput.fire;
+      if (this.knifeEquipped) {
+        frameInput.fire = false;
+        frameInput.ads = false;
+      }
+      let inputStepped = false;
       while (this.accumulator >= TICK) {
+        inputStepped = true;
         const input = { ...frameInput, seq: ++this.sequence };
         if (this.mode === 'solo') {
           if (!this.paused && !this.gameEnded) {
@@ -413,6 +464,7 @@ export class Game {
         }
         this.accumulator -= TICK;
       }
+      if (inputStepped) this.input.consumeFire();
       if (this.mode === 'solo') {
         this.state = this.sim.snapshot();
         this.handleEvents(this.sim.takeEvents());
@@ -431,6 +483,7 @@ export class Game {
                 vz: this.predicted.vz,
                 grounded: this.predicted.grounded,
                 crouch: this.predicted.crouch,
+                sliding: this.predicted.sliding,
               }
             : authority;
         if (
@@ -451,32 +504,53 @@ export class Game {
             this.settings.headBob && cameraPlayer.grounded
               ? Math.sin(this.time * 16) * 0.023 * moving
               : 0;
-        const eye = cameraPlayer.downed ? 0.65 : cameraPlayer.crouch ? 0.98 : 1.58;
-        if (cameraPlayer.grounded && !this.wasGrounded) this.landing = 0.09;
+        const eye = cameraPlayer.downed
+          ? 0.65
+          : cameraPlayer.sliding
+            ? 0.62
+            : cameraPlayer.crouch
+              ? 0.98
+              : 1.58;
+        const targetChanged = cameraPlayer.id !== this.cameraTargetId;
+        if (targetChanged) {
+          this.cameraTargetId = cameraPlayer.id;
+          this.landing = 0;
+        } else if (cameraPlayer.grounded && !this.wasGrounded) {
+          this.landing = 0.09;
+        }
         this.wasGrounded = cameraPlayer.grounded;
         this.landing = THREE.MathUtils.damp(this.landing, 0, 9, dt);
         const targetY = cameraPlayer.y + eye + bob - this.landing;
-        this.view.camera.position.x = cameraPlayer.x;
-        this.view.camera.position.z = cameraPlayer.z;
-        this.view.camera.position.y = THREE.MathUtils.damp(
-          this.view.camera.position.y,
-          targetY,
-          18,
-          dt,
-        );
+        if (targetChanged) {
+          this.view.camera.position.set(cameraPlayer.x, targetY, cameraPlayer.z);
+        } else {
+          this.view.camera.position.x = cameraPlayer.x;
+          this.view.camera.position.z = cameraPlayer.z;
+          this.view.camera.position.y = THREE.MathUtils.damp(
+            this.view.camera.position.y,
+            targetY,
+            18,
+            dt,
+          );
+        }
         if (this.time > this.damageDirectionUntil)
           this.ui.el['direction-indicator'].style.opacity = 0;
         this.view.camera.rotation.set(
-          cameraPlayer === p ? this.input.pitch + this.recoil : cameraPlayer.pitch,
+          cameraPlayer === p
+            ? cameraPitch(this.input.pitch, this.recoil)
+            : cameraPitch(cameraPlayer.pitch),
           cameraPlayer === p ? this.input.yaw : cameraPlayer.yaw,
           cameraPlayer.downed ? -0.15 : 0,
           'YXZ',
         );
         const fov =
-          this.settings.fov - (frameInput.ads ? (p.inventory[p.slot].id === 'lynx' ? 38 : 15) : 0);
-        this.view.camera.fov = THREE.MathUtils.damp(this.view.camera.fov, fov, 13, dt);
-        this.view.camera.updateProjectionMatrix();
-        this.weapon.update(p, frameInput, dt, this.state.time, this.settings);
+          this.settings.fov - (frameInput.ads ? WEAPONS[p.inventory[p.slot].id].zoom || 15 : 0);
+        const cameraFov = THREE.MathUtils.damp(this.view.camera.fov, fov, 13, dt);
+        if (Math.abs(this.view.camera.fov - cameraFov) > 0.001) {
+          this.view.camera.fov = cameraFov;
+          this.view.camera.updateProjectionMatrix();
+        }
+        this.weapon.update(p, frameInput, dt, this.state.time, this.settings, this.knifeEquipped);
         this.map.update(this.time, dt, this.state);
         this.zombies.update(state.zombies, state.players, this.id, this.state.time, dt);
         this.effects.update(dt, this.time);
@@ -485,6 +559,9 @@ export class Game {
           multiplayer: this.mode === 'multiplayer',
           scoreboard: this.input.keys.has('Tab'),
           ads: frameInput.ads,
+          knifeEquipped: this.knifeEquipped,
+          sliding: p.sliding,
+          cameraFov: this.view.camera.fov,
         });
         this.view.render(dt, !p.downed && !p.eliminated);
         if (this.state.state === 'over' && !this.gameEnded) {
@@ -501,6 +578,7 @@ export class Game {
       }
     }
     this.input.endFrame();
+    this.preview?.update(dt);
     this.frameId = requestAnimationFrame(this.frame);
   }
 }

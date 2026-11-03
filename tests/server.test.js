@@ -105,3 +105,54 @@ test('room capacity, room code validation and cross-room isolation', async (t) =
   assert.notEqual(other.lobby.code, r.lobby.code);
   assert.equal(server.rooms.get(r.lobby.code).members.size, 4);
 });
+
+test('co-op shop validates station unlocks, individual blueprints and server prices', async (t) => {
+  const server = await createGameServer({ port: 0, host: '127.0.0.1' }),
+    sockets = [];
+  t.after(async () => {
+    sockets.forEach((s) => s.disconnect());
+    await server.close();
+  });
+  for (let i = 0; i < 2; i++) {
+    const socket = io(`http://127.0.0.1:${server.port}`, {
+      transports: ['websocket'],
+      forceNew: true,
+    });
+    sockets.push(socket);
+    await once(socket, 'connect');
+  }
+  const [a, b] = sockets,
+    r = await request(a, 'create');
+  await request(b, 'join', { code: r.lobby.code });
+  await request(a, 'ready', { ready: true });
+  await request(b, 'ready', { ready: true });
+  await request(a, 'start');
+  const sim = server.rooms.get(r.lobby.code).sim,
+    p = sim.players.get(a.id),
+    peer = sim.players.get(b.id);
+  p.points = 699;
+  a.emit('action', { type: 'shopBuy', item: 'weapon:raven', price: 0, unlockedWeapons: ['raven'] });
+  await wait(80);
+  assert.equal(p.points, 699);
+  assert.equal(p.inventory.length, 1);
+  p.points = 3000;
+  p.x = -11.2;
+  p.z = 16;
+  p.vx = 0;
+  p.vz = 0;
+  a.emit('action', { type: 'interact' });
+  await wait(80);
+  assert.ok(p.unlockedWeapons.includes('raven'));
+  assert.deepEqual(peer.unlockedWeapons, ['vx9']);
+  assert.equal(p.points, 3000);
+  a.emit('action', { type: 'shopBuy', item: 'weapon:raven', price: -1000 });
+  await wait(80);
+  assert.equal(p.points, 2000);
+  assert.equal(p.inventory[p.slot].id, 'raven');
+  b.emit('action', { type: 'shopBuy', item: 'weapon:raven', points: 99999 });
+  await wait(80);
+  assert.equal(peer.points, 500);
+  assert.equal(peer.inventory.length, 1);
+  const snapshot = await once(b, 'snapshot');
+  assert.ok(snapshot.players.find((x) => x.id === a.id).unlockedWeapons.includes('raven'));
+});

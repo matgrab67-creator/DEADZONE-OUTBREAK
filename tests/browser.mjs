@@ -35,22 +35,83 @@ try {
   assert.equal(await page.title(), 'DEADZONE: OUTBREAK');
   await page.locator('#settings-top').click();
   await page.locator('#quality').selectOption('medium');
+  await page.locator('#knifeModel').selectOption('skeleton');
   await page.locator('#settings-done').click();
+  assert.equal(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('deadzone-settings')).knifeModel),
+    'skeleton',
+  );
   await page.locator('#how').click();
   assert.ok(await page.locator('#how-modal').isVisible());
   await page.locator('#how-modal .modal-close').click();
+  await page.locator('#open-index').click();
+  assert.match(
+    await page.locator('#index-counts').innerText(),
+    /0 \/ 6 THREATS\s+·\s+1 \/ 10 WEAPONS/,
+  );
+  assert.equal(
+    await page.locator('#weapon-index .index-card:not(.undiscovered) h4').innerText(),
+    'VX-9',
+  );
+  await page.setViewportSize({ width: 1440, height: 600 });
+  const indexScroll = page.locator('#index-panel .index-content');
+  await page.waitForTimeout(100);
+  const indexDimensions = await indexScroll.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+  }));
+  assert.ok(
+    indexDimensions.scrollHeight > indexDimensions.clientHeight,
+    'the complete field index should scroll within the menu',
+  );
+  await page.mouse.move(900, 520);
+  await page.mouse.wheel(0, 700);
+  await page.waitForTimeout(100);
+  assert.ok(await indexScroll.evaluate((element) => element.scrollTop > 0));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(100);
+  assert.ok(
+    await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight),
+    'the complete field index should scroll with the page on mobile',
+  );
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(100);
+  assert.ok(await page.evaluate(() => window.scrollY > 0));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.locator('#index-back').click();
   await page.locator('#solo').click();
   await page.waitForFunction(() => window.__DEADZONE__?.mode === 'solo');
   await page.waitForTimeout(400);
   if (await page.locator('#pause-modal').isVisible()) await page.locator('#resume').click();
   await page.waitForFunction(() => document.pointerLockElement !== null);
+  await page.keyboard.press('KeyF');
+  await page.waitForFunction(() => window.__DEADZONE__.weapon.id === 'knife');
+  assert.equal(await page.evaluate(() => window.__DEADZONE__.weapon.variant), 'skeleton');
+  for (const knife of ['karambit', 'stiletto', 'skeleton']) {
+    await page.evaluate((id) => {
+      const game = window.__DEADZONE__;
+      game.settings.knifeModel = id;
+      game.weapon.update(
+        game.sim.players.get('solo'),
+        game.input.sample(true),
+        1 / 60,
+        game.sim.time,
+        game.settings,
+        true,
+      );
+    }, knife);
+    assert.equal(await page.evaluate(() => window.__DEADZONE__.weapon.variant), knife);
+  }
+  await page.keyboard.press('KeyF');
+  await page.waitForFunction(() => window.__DEADZONE__.weapon.id === 'vx9');
   const position = await page.evaluate(() => ({ ...window.__DEADZONE__.sim.players.get('solo') }));
   await page.keyboard.down('KeyW');
   await page.waitForTimeout(700);
   await page.keyboard.up('KeyW');
   const moved = await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').z);
   assert.ok(moved < position.z - 0.7, `WASD did not move: ${moved}`);
-  await page.mouse.move(820, 430);
+  await page.mouse.move(820, 430, { steps: 12 });
   const yaw = await page.evaluate(() => window.__DEADZONE__.input.yaw);
   assert.notEqual(yaw, 0, 'mouse look');
   await page.evaluate(() => {
@@ -110,7 +171,18 @@ try {
   await page.waitForTimeout(1700);
   await page.screenshot({ path: 'test-results/gameplay.png' });
   // Exercise every procedural weapon model and the late-game room geometry.
-  for (const weapon of ['raven', 'spectre', 'vortex', 'iron', 'lynx', 'vx9']) {
+  for (const weapon of [
+    'raven',
+    'spectre',
+    'vortex',
+    'iron',
+    'lynx',
+    'vx9',
+    'desertEagle',
+    'tec9',
+    'scout',
+    'pbs1',
+  ]) {
     await page.evaluate(async (id) => {
       const { makeInventory } = await import('/shared/config.js');
       const game = window.__DEADZONE__;
@@ -125,6 +197,7 @@ try {
     await page.waitForTimeout(90);
     await page.mouse.up();
     assert.equal(await page.evaluate(() => window.__DEADZONE__.weapon.id), weapon);
+    if (weapon === 'desertEagle') await page.screenshot({ path: 'test-results/desert-eagle.png' });
   }
   await page.evaluate(() => {
     const game = window.__DEADZONE__,
@@ -143,7 +216,7 @@ try {
   await page.waitForTimeout(350);
   await page.screenshot({ path: 'test-results/reactor.png' });
   assert.ok(await page.locator('#boss-bar').isVisible());
-  console.log('PASS: all six weapon viewmodels and reactor/boss render without runtime errors.');
+  console.log('PASS: all ten weapon viewmodels and reactor/boss render without runtime errors.');
   await page.keyboard.press('Escape');
   await page.locator('#pause-modal').waitFor({ state: 'visible' });
   const paused = await page.evaluate(() => window.__DEADZONE__.sim.time);
@@ -160,8 +233,16 @@ try {
   assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').hp), 100);
   await page.keyboard.press('Escape');
   await page.locator('#quit').click();
+  await page.locator('#open-index').click();
+  assert.ok(
+    (
+      await page.locator('#zombie-index .index-card:not(.undiscovered) h4').allInnerTexts()
+    ).includes('SHAMBLER'),
+  );
+  assert.equal(await page.locator('#weapon-index .index-card:not(.undiscovered)').count(), 10);
+  await page.locator('#index-back').click();
   console.log(
-    'PASS: main menu, settings, manual, pointer lock, WASD, mouse look, combat, reload, points, door, pause, death and restart.',
+    'PASS: menu, field index discovery and persistence, settings, manual, pointer lock, controls, combat, purchases, pause, death and restart.',
   );
   // Independent browser contexts represent separate clients with separate state.
   const context2 = await browser.newContext({ viewport: { width: 1100, height: 800 } }),

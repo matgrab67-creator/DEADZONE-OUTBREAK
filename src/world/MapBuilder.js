@@ -14,6 +14,21 @@ export class MapBuilder {
     this.doors = new Map();
     this.lights = [];
     this.collectibles = new Map();
+    this.blueprintDrops = new Map();
+    this.blueprintGeometry = new THREE.OctahedronGeometry(0.16, 0);
+    this.blueprintRingGeometry = new THREE.TorusGeometry(0.24, 0.012, 8, 24);
+    this.blueprintMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffd568,
+      emissive: 0xb77b16,
+      emissiveIntensity: 2,
+      metalness: 0.75,
+      roughness: 0.25,
+    });
+    this.blueprintRingMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffe6a3,
+      transparent: true,
+      opacity: 0.85,
+    });
     this.stationLights = [];
     this.build();
   }
@@ -278,7 +293,9 @@ export class MapBuilder {
       );
       this.sign(
         s.name,
-        `${s.price ? `${s.price} PTS` : '+25 PTS'}  /  [ E ]`,
+        s.type === 'weapon'
+          ? '[ E ] UNLOCK BLUEPRINT / FREE'
+          : `${s.price ? `${s.price} PTS` : '+25 PTS'}  /  [ E ]`,
         s.x,
         perk ? 1.4 : 0.68,
         s.z + 0.333,
@@ -400,6 +417,28 @@ export class MapBuilder {
       mesh.visible = !state?.collected.includes(id);
       mesh.rotation.y = time * 0.5;
       mesh.position.y = 0.35 + Math.sin(time * 2) * 0.08;
+    }
+    const drops = state?.blueprints || [],
+      activeDrops = new Set(drops.map((drop) => drop.id));
+    for (const [id, group] of this.blueprintDrops) {
+      if (activeDrops.has(id)) continue;
+      this.group.remove(group);
+      this.blueprintDrops.delete(id);
+    }
+    for (const drop of drops) {
+      let group = this.blueprintDrops.get(drop.id);
+      if (!group) {
+        group = new THREE.Group();
+        const blueprint = new THREE.Mesh(this.blueprintGeometry, this.blueprintMaterial);
+        const ring = new THREE.Mesh(this.blueprintRingGeometry, this.blueprintRingMaterial);
+        ring.rotation.x = -Math.PI / 2;
+        group.add(blueprint, ring);
+        group.position.set(drop.x, 0.55, drop.z);
+        this.group.add(group);
+        this.blueprintDrops.set(drop.id, group);
+      }
+      group.position.y = 0.55 + Math.sin(time * 3) * 0.08;
+      group.rotation.y = time * 0.8;
     }
     this.dust.rotation.y = Math.sin(time * 0.03) * 0.02;
   }

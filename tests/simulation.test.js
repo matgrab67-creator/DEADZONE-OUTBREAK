@@ -4,7 +4,7 @@ import { initPhysics } from '../shared/Physics.js';
 import { Simulation, sanitizeInput } from '../shared/Simulation.js';
 import { Navigation } from '../shared/Navigation.js';
 import { obstacles, blocked, slide, rayBox } from '../shared/map.js';
-import { WEAPONS, makeInventory } from '../shared/config.js';
+import { WEAPONS, makeInventory, random } from '../shared/config.js';
 
 before(async () => await initPhysics());
 const setup = () => {
@@ -69,6 +69,62 @@ test('jump and crouch remain grounded correctly', (t) => {
   assert.equal(p.crouch, true);
   step(sim, 10);
   assert.equal(p.crouch, false);
+});
+test('CTRL triggers a momentum slide while running, but not from a standstill', (t) => {
+  const { sim, p } = setup();
+  t.after(() => sim.dispose());
+  step(sim, 40, { forward: true });
+  const speedBeforeSlide = Math.hypot(p.vx, p.vz);
+  assert.ok(speedBeforeSlide > 3.2);
+  step(sim, 2, { forward: true, crouch: true });
+  assert.equal(p.sliding, true);
+  assert.ok(Math.hypot(p.vx, p.vz) > speedBeforeSlide * 0.9);
+  step(sim, 44, { forward: true, crouch: true });
+  assert.equal(p.sliding, false);
+  assert.equal(p.crouch, true);
+  p.vx = 0;
+  p.vz = 0;
+  step(sim, 2, { crouch: true });
+  assert.equal(p.sliding, false);
+});
+test('knife attacks damage a zombie in front and enforce attack cooldown', (t) => {
+  const { sim, p } = setup();
+  t.after(() => sim.dispose());
+  const target = sim.spawnZombie('normal');
+  target.x = p.x;
+  target.z = p.z - 1.5;
+  assert.equal(sim.action('p', { type: 'knifeAttack' }), true);
+  assert.equal(sim.zombies.has(target.id), false);
+  assert.equal(p.kills, 1);
+  assert.equal(sim.action('p', { type: 'knifeAttack' }), false);
+});
+test('zombies have a 1-in-20 chance to drop a recoverable locked weapon blueprint', (t) => {
+  const { sim, p } = setup();
+  t.after(() => sim.dispose());
+  sim.round = 1;
+  const matchingSeed = (number, shouldDrop) => {
+    for (let seed = 0; seed < 10000; seed++)
+      if (random(seed + number * 43 + sim.round * 71) < 0.05 === shouldDrop) return seed;
+    assert.fail(`could not find a deterministic ${shouldDrop ? 'drop' : 'no-drop'} seed`);
+  };
+  const common = sim.spawnZombie();
+  sim.seed = matchingSeed(1, false);
+  sim.damageZombie(common, 1000, p);
+  assert.equal(sim.blueprints.length, 0);
+
+  const dropped = sim.spawnZombie();
+  dropped.x = p.x;
+  dropped.z = p.z;
+  sim.seed = matchingSeed(2, true);
+  sim.damageZombie(dropped, 1000, p);
+  assert.equal(sim.blueprints.length, 1);
+  assert.equal(sim.snapshot().blueprints.length, 1);
+  const drop = sim.blueprints[0];
+  assert.equal(sim.nearest(p).id, drop.id);
+  assert.equal(sim.interact(p), true);
+  assert.ok(p.unlockedWeapons.includes(drop.weapon));
+  assert.equal(sim.blueprints.length, 0);
+  assert.equal(sim.snapshot().blueprints.length, 0);
 });
 test('authoritative weapon hits head, awards points and enforces fire rate', (t) => {
   const { sim, p } = setup();
@@ -138,6 +194,9 @@ test('weapon purchase, perk and upgrade have real effects and no double charges'
   p.x = -11.2;
   p.z = 16;
   assert.ok(sim.action('p', { type: 'interact' }));
+  assert.deepEqual(p.unlockedWeapons, ['vx9', 'raven']);
+  assert.equal(p.points, 10000);
+  assert.ok(sim.action('p', { type: 'shopBuy', item: 'weapon:raven' }));
   assert.equal(p.inventory[p.slot].id, 'raven');
   assert.equal(p.points, 9000);
   sim.time += 0.5;
@@ -174,6 +233,21 @@ test('AI routes around a container without entering solid geometry', (t) => {
   }
   assert.ok(closest < 1.3, `did not navigate: closest ${closest}`);
   assert.ok(p.hp < 100 || p.downed);
+});
+test('zombies approach from different angles instead of following one line', (t) => {
+  const { sim, p } = setup();
+  t.after(() => sim.dispose());
+  p.x = -20;
+  p.z = 12;
+  const zombies = Array.from({ length: 8 }, () => sim.spawnZombie('normal'));
+  for (const z of zombies) {
+    z.x = -20;
+    z.z = 3;
+  }
+  sim.updateZombies(1 / 60);
+  const headings = zombies.map((z) => Math.atan2(z.x + 20, 3 - z.z));
+  const spread = Math.max(...headings) - Math.min(...headings);
+  assert.ok(spread > 0.5, `approach headings were too similar: ${headings.join(', ')}`);
 });
 test('zombie kills player and solo ends', (t) => {
   const { sim, p } = setup();

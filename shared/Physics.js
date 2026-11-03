@@ -52,7 +52,27 @@ export class Physics {
   move(p, input, dt) {
     this.add(p);
     const actor = this.actors.get(p.id);
-    let crouch = !!input.crouch;
+    p.slideCooldown = Math.max(0, p.slideCooldown - dt);
+    const horizontalSpeed = Math.hypot(p.vx, p.vz);
+    const directionalInput = input.forward || input.back || input.left || input.right;
+    if (
+      input.crouch &&
+      !actor.crouch &&
+      p.grounded &&
+      directionalInput &&
+      !input.walk &&
+      horizontalSpeed >= 3.2 &&
+      p.slideCooldown === 0
+    ) {
+      p.slideTime = 0.72;
+      p.slideCooldown = 1.15;
+      const boost = Math.min(7.2, horizontalSpeed * 1.15) / (horizontalSpeed || 1);
+      p.vx *= boost;
+      p.vz *= boost;
+    }
+    p.slideTime = Math.max(0, p.slideTime - dt);
+    p.sliding = p.slideTime > 0;
+    let crouch = !!input.crouch || p.sliding;
     // Clearance is tested before expanding the capsule after crouching.
     if (actor.crouch && !crouch) {
       const hit = this.world.castRay(
@@ -77,16 +97,21 @@ export class Physics {
       4.6 *
       w.weight *
       (p.perks.includes('ghost') ? 1.18 : 1) *
-      (crouch ? 0.48 : input.walk ? 0.55 : 1) *
+      (p.sliding ? 0 : crouch ? 0.48 : input.walk ? 0.55 : 1) *
       (input.ads ? 0.7 : 1);
     const sx = Number(input.right) - Number(input.left),
       sz = Number(input.back) - Number(input.forward),
       len = Math.hypot(sx, sz) || 1;
     const tx = ((sx * Math.cos(p.yaw) + sz * Math.sin(p.yaw)) / len) * speed,
       tz = ((-sx * Math.sin(p.yaw) + sz * Math.cos(p.yaw)) / len) * speed;
-    const accel = 1 - Math.exp(-(p.grounded ? 18 : 5) * dt);
+    const accel = 1 - Math.exp(-(p.sliding ? 1.4 : p.grounded ? 18 : 5) * dt);
     p.vx += (tx - p.vx) * accel;
     p.vz += (tz - p.vz) * accel;
+    if (p.sliding) {
+      const friction = Math.exp(-1.25 * dt);
+      p.vx *= friction;
+      p.vz *= friction;
+    }
     if (input.jump && p.grounded && !p.jumpHeld) {
       p.vy = 6.3;
       p.grounded = false;

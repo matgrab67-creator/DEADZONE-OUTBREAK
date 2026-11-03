@@ -50,7 +50,8 @@ export class Renderer {
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.weaponEnvironment = pmrem.fromScene(room, 0.04);
     this.viewmodelScene.environment = this.weaponEnvironment.texture;
-    room.dispose(); pmrem.dispose();
+    room.dispose();
+    pmrem.dispose();
     this.viewmodelScene.add(new THREE.HemisphereLight(0xd8e3e0, 0x27362b, 0.9));
     const light = new THREE.DirectionalLight(0xffedd9, 2.2);
     light.position.set(1, 3, 3);

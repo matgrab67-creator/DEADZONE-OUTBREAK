@@ -31,7 +31,13 @@ Tryb solo nie potrzebuje serwera multiplayer. Pierwsze wejście inicjalizuje lok
 
 - Sześć sektorów BLACKSITE–13 z fizycznymi ścianami, przeszkodami, maszynami, zamkniętymi drzwiami, oświetleniem i proceduralnymi materiałami.
 - Ruch FPS: przyspieszenie, hamowanie, skakanie, kucanie, cichy chód, kolizje kapsuły Rapier, regulowana czułość i FOV, kołysanie broni, odrzut i reakcja na lądowanie.
-- Sześć oryginalnych broni: **VX-9**, **RAVEN-47**, **M4-SPECTRE**, **VORTEX-9**, **IRON-12**, **LYNX-50**. Różne obrażenia, szybkostrzelność, zapasy amunicji, przeładowanie, rozrzut, odrzut, zasięg i modele 3D. Trzy sloty ekwipunku.
+- Dziesięć oryginalnych broni: **VX-9**, **DESERT EAGLE**, **TEC-9**, **RAVEN-47**, **M4-SPECTRE**, **VORTEX-9**, **IRON-12**, **LYNX-50**, **SCOUT-9** i **PBS-1**. Różne obrażenia, szybkostrzelność, zapasy amunicji, przeładowanie, rozrzut, odrzut, zasięg i modele 3D. Trzy sloty ekwipunku.
+- Osobny slot noża pod **F** z trzema modelami odwzorowanymi z referencji: **Karambit**, **Skeleton Knife** i **Stiletto**. Wybrany model można zmienić w ustawieniach; poprzedni wybór Dagger automatycznie przechodzi na Stiletto. Nóż atakuje na bliskim dystansie po kliknięciu LPM.
+- Karambit ma łukowatą klingę i profilowany chwyt z pierścieniem; Skeleton — duży otwór przy nasadzie, pięć małych otworów w klindze, otwór na końcu i owinięty chwyt. Stiletto ma wąską klingę, metalowe okucia, drewniane okładziny oraz animację otwierania ostrza.
+- Noże mają fazowane ostrza, rzeczywiste otwory w rękojeściach, jedną dłoń z palcami zagiętymi wokół chwytu i animacje dobycia, cięcia oraz oglądania pod **V**. Dłoń i nóż poruszają się razem. Krótkie kliknięcia są zapamiętywane do następnego kroku gry; atak nożem nie zużywa amunicji broni palnej.
+- Każdy typ zombie ma model ze stawami łokciowymi i kolanowymi, ruchomą szczęką, twarzą oraz ubraniem lub pancerzem. Ruch wynika z prędkości przeciwnika; osobno animowane są ataki, trafienia, śmierć, pełzanie i przygotowanie ataku bossa.
+- Celność zależy od ruchu, skoku, kucania, czasu wejścia w celowanie i długości serii. Celownik pokazuje aktualny stożek rozrzutu. Rozrzut jest liczony w tej samej symulacji solo i na serwerze; śrut strzelby zachowuje własny stożek także przy celowaniu.
+- Kamera odrzuca skoki kursora po przechwyceniu myszy i zmianie okna. Limit patrzenia obejmuje też odrzut, co zapobiega przechodzeniu kamery ponad pion i odwracaniu widoku.
 - Hitscan z zasłanianiem przez geometrię, strefami głowy/tułowia/kończyn, premiami za headshot, pancerzem przeciwnika, markerami trafień, smugami i efektami uderzeń. Granaty z obrażeniami obszarowymi i zasłanianiem wybuchów przez ściany.
 - Animowane modele 3D: zwykły zombie, runner, armored, crawler, exploder oraz boss **THE EXPERIMENT**. Nawigacja po siatce, rozdzielanie przeciwników, ataki wręcz, reakcje na trafienie i upadek po śmierci.
 - Niekończące się rundy z narastającą trudnością, przerwą na zakupy oraz bossem co piątą rundę. Boss ma trzy fazy i zapowiadany atak obszarowy.
@@ -39,15 +45,21 @@ Tryb solo nie potrzebuje serwera multiplayer. Pierwsze wejście inicjalizuje lok
 - Zdrowie, pancerz, regeneracja po sześciu sekundach bez obrażeń, śmierć solo, stan powalenia w co-op, reanimacja przez przytrzymanie E, wykrwawienie, obserwowanie ocalałego gracza i odrodzenie po ukończeniu rundy.
 - Prywatne pokoje Socket.IO, kody zaproszeń, gotowość graczy, start przez hosta, wspólny stan rozgrywki, osobne punkty i ekwipunki, restart meczu, zmiana hosta po rozłączeniu i czyszczenie pustych pokojów.
 - Menu z animowanym tłem 3D, HUD, scoreboard, instrukcja, ustawienia, pauza i ekran końca meczu. Proceduralne dźwięki przestrzenne. Ustawienia Low/Medium/High/Ultra, bloom w High/Ultra i opcjonalna dynamiczna rozdzielczość.
+- **Field Index** w menu zapisuje odkryte typy zombie i zdobyte bronie w przeglądarce; nowe wpisy pojawiają się po spotkaniu przeciwnika lub zdobyciu broni.
+- Kliknięcie wpisu indeksu otwiera opis, statystyki i model 3D obracający się wokół własnej, wyśrodkowanej osi. Dostępne są bronie, przeciwnicy i trzy noże. Podgląd nie zmienia licznika odkrytych wpisów ani odblokowań sklepu.
+- **B** otwiera sklep z bronią, amunicją, pancerzem (shield), apteczkami, granatami, perkami i ulepszeniem aktualnej broni. **B**, **Esc** lub przycisk zamknięcia wracają do rozgrywki. W solo sklep zatrzymuje symulację; w co-op mecz trwa dalej.
+- Indeks broni i zagrożeń przewija się wewnątrz menu na komputerach oraz razem ze stroną na urządzeniach mobilnych. Zombie mają 5% szansy na upuszczenie podświetlonego schematu; podnieś go klawiszem **E**, by odblokować odpowiadającą mu broń za darmo.
 
 ## Pierwsza rozgrywka
 
 Startujesz z pistoletem, 500 punktami, 25 punktami pancerza i dwoma granatami. Pierwsza fala zaczyna się po siedmiu sekundach.
 
 - Zwykła eliminacja: **100** punktów, headshot: **150**, asysta: **50**.
-- RAVEN-47 w strefie startowej: **1 000** punktów.
+- Stacje broni odblokowują schemat **za darmo** po interakcji **E**. Następnie kupujesz broń w sklepie **B**, np. TEC-9 za **950**, DESERT EAGLE za **1 400**, SCOUT-9 za **1 900** lub PBS-1 za **2 400** punktów. Schematy są indywidualne i obowiązują w aktualnym meczu. Ponowne wybranie posiadanej broni w sklepie tylko ją wyposaża, bez opłaty.
+- Jeśli nie chcesz szukać stacji ani czekać na drop, możesz kupić zablokowany schemat w sklepie za **70% ceny broni**. Odblokowanie schematu nie kupuje samej broni — jej pełną cenę płacisz osobno.
 - Drzwi do punktu kontrolnego: **750** punktów; tunel: **1 000**.
-- Amunicja: **250** punktów. Uzupełnia zapas aktualnej broni i co najmniej dwa granaty; magazynek nadal wymaga przeładowania.
+- Amunicja w sklepie: **250** punktów — uzupełnia zapas aktualnej broni; magazynek nadal wymaga przeładowania. Stare stacje amunicji dodatkowo uzupełniają co najmniej dwa granaty.
+- Pancerz: **500** punktów, przywraca 100 punktów shield. Apteczka: **350**, przywraca pełne zdrowie. Dwa granaty: **300**, maksymalnie można nosić cztery. Zakupy pełnych zasobów są blokowane bez pobierania punktów.
 - Po każdej rundzie masz 12 sekund na zakupy; otrzymujesz 100 punktów i jeden granat, maksymalnie cztery.
 - Ulepszenie broni kosztuje **2 500** punktów, zwiększa obrażenia ×1,9 i pojemność magazynka ×1,5.
 - Naprawa barykady daje 25 punktów; ograniczona do czterech napraw na rundę i jednej co pięć sekund.
@@ -64,8 +76,13 @@ Startujesz z pistoletem, 500 punktami, 25 punktami pancerza i dwoma granatami. P
 | R                    | Przeładowanie                               |
 | Shift                | Cichy chód                                  |
 | Ctrl lub C           | Kucanie                                     |
+| Ctrl podczas biegu   | Ślizg z zachowaniem pędu                    |
 | Spacja               | Skok                                        |
 | E                    | Interakcja / zakup; przytrzymanie reanimuje |
+| F                    | Wyciągnięcie / schowanie noża               |
+| V                    | Oglądanie broni lub noża                    |
+| B                    | Sklep / zamknięcie sklepu                   |
+| Lewy przycisk myszy  | Atak nożem, gdy jest wyciągnięty            |
 | G                    | Granat                                      |
 | 1 / 2 / 3            | Zmiana broni                                |
 | Tab                  | Wyniki drużyny                              |
@@ -108,6 +125,8 @@ npm.cmd run test:production
 
 # Z działającym frontendem i serwerem:
 npm.cmd run test:browser
+npm.cmd run test:models
+npm.cmd run test:features
 ```
 
 Testy jednostkowe i integracyjne sprawdzają walidację wejścia, kolizje Rapier, skok i kucanie, trafienia i przesłanianie przez ściany, odrzucanie zbyt szybkich strzałów, przeładowanie, zakupy i punkty, drzwi, nawigację, rundy, bossów, reanimację, granaty, sześć broni, gotowość hosta, limity pokoi, synchronizację i rozłączenia. Integracja korzysta z prawdziwych klientów Socket.IO i serwera na losowym lokalnym porcie.

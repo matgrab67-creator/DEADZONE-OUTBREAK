@@ -12,6 +12,9 @@ import {
 } from './map.js';
 import { Navigation } from './Navigation.js';
 import { Physics } from './Physics.js';
+import { zombieHitboxes } from './Hitboxes.js';
+import { ACCURACY, spreadFor, recordShot, forwardDirection, sampleCone } from './Ballistics.js';
+import { SHOP_BY_ID, shopStatus } from './Shop.js';
 
 export const blankInput = () => ({
   forward: false,
@@ -56,6 +59,7 @@ export class Simulation {
     this.events = [];
     this.openDoors = [];
     this.collected = [];
+    this.blueprints = [];
     this.obs = obstacles();
     this.nav = new Navigation(this.obs);
     this.bossNav = new Navigation(this.obs, 0.75);
@@ -95,7 +99,11 @@ export class Simulation {
       headshots: 0,
       assists: 0,
       inventory: [makeInventory('vx9')],
+      unlockedWeapons: ['vx9'],
       slot: 0,
+      lastKnife: -100,
+      slideTime: 0,
+      slideCooldown: 0,
       perks: [],
       grenades: 2,
       downed: false,
@@ -106,6 +114,7 @@ export class Simulation {
       reviveUntil: 0,
       lastDamage: -100,
       lastFire: -100,
+      aimAlpha: 0,
       reloadEnd: 0,
       shotIndex: 0,
       ack: 0,
@@ -174,6 +183,9 @@ export class Simulation {
       p.pitch = input.pitch;
       p.ack = input.seq;
       this.physics.move(p, input, dt);
+      const aimTarget = input.ads && !p.reloadEnd ? 1 : 0;
+      const aimStep = dt / ACCURACY[p.inventory[p.slot].id].aimTime;
+      p.aimAlpha += clamp(aimTarget - p.aimAlpha, -aimStep, aimStep);
       if (p.reloadEnd && this.time >= p.reloadEnd) {
         const inv = p.inventory[p.slot],
           cap = this.capacity(inv),
@@ -231,9 +243,95 @@ export class Simulation {
       p.shotIndex = 0;
       return true;
     }
+    if (action.type === 'shopBuy') return this.buyShopItem(p, action.item);
+    if (action.type === 'knifeAttack') return this.knifeAttack(p);
     if (action.type === 'grenade') return this.throwGrenade(p);
     if (action.type === 'interact') return this.interact(p);
     return false;
+  }
+  knifeAttack(p) {
+    if (this.time - p.lastKnife < 0.55) return false;
+    p.lastKnife = this.time;
+    const forward = { x: -Math.sin(p.yaw), z: -Math.cos(p.yaw) };
+    let target = null,
+      nearest = 2.15;
+    for (const zombie of this.zombies.values()) {
+      const dx = zombie.x - p.x,
+        dz = zombie.z - p.z,
+        dist = Math.hypot(dx, dz);
+      if (
+        dist < nearest &&
+        dist > 0.01 &&
+        (dx * forward.x + dz * forward.z) / dist > 0.35 &&
+        this.hasSight(p, zombie)
+      ) {
+        target = zombie;
+        nearest = dist;
+      }
+    }
+    if (target) this.damageZombie(target, 115, p);
+    this.event('knife', { player: p.id, hit: !!target });
+    return true;
+  }
+  grantWeapon(p, weapon) {
+    const owned = p.inventory.findIndex((i) => i.id === weapon);
+    if (owned >= 0) {
+      p.slot = owned;
+      p.inventory[owned].reserve = WEAPONS[weapon].reserve;
+      p.inventory[owned].ammo = this.capacity(p.inventory[owned]);
+    } else if (p.inventory.length < 3) {
+      p.inventory.push(makeInventory(weapon));
+      p.slot = p.inventory.length - 1;
+    } else p.inventory[p.slot] = makeInventory(weapon);
+    p.reloadEnd = 0;
+    p.aimAlpha = 0;
+    p.shotIndex = 0;
+    this.event('weapon', { player: p.id, weapon });
+  }
+  buyShopItem(p, id) {
+    const item = typeof id === 'string' ? SHOP_BY_ID.get(id) : null;
+    if (!item) return false;
+    const status = shopStatus(p, item);
+    if (!status.allowed) {
+      this.event('notice', { player: p.id, message: status.reason || status.label });
+      return false;
+    }
+    if (status.equipSlot !== undefined) {
+      p.slot = status.equipSlot;
+      p.reloadEnd = 0;
+      return true;
+    }
+    if (status.blueprint) {
+      p.unlockedWeapons.push(item.weapon);
+      p.points -= status.blueprintPrice;
+      this.event('unlock', { player: p.id, weapon: item.weapon, name: item.name });
+      this.event('purchase', {
+        player: p.id,
+        item: `blueprint:${item.weapon}`,
+        name: `${item.name} BLUEPRINT`,
+      });
+      return true;
+    }
+    const inv = p.inventory[p.slot];
+    if (item.type === 'weapon') this.grantWeapon(p, item.weapon);
+    else if (item.type === 'ammo') inv.reserve = WEAPONS[inv.id].reserve;
+    else if (item.type === 'armor') p.armor = 100;
+    else if (item.type === 'health') p.hp = p.maxHp;
+    else if (item.type === 'grenades') p.grenades = Math.min(4, p.grenades + 2);
+    else if (item.type === 'upgrade') {
+      inv.upgraded = true;
+      inv.ammo = this.capacity(inv);
+      inv.reserve = WEAPONS[inv.id].reserve;
+    } else if (item.type === 'perk') {
+      p.perks.push(item.perk);
+      if (item.perk === 'heart') {
+        p.maxHp = 180;
+        p.hp = 180;
+      }
+    }
+    p.points -= item.price;
+    this.event('purchase', { player: p.id, item: item.id, name: item.name });
+    return true;
   }
   fire(p, input) {
     const inv = p.inventory[p.slot],
@@ -250,23 +348,16 @@ export class Simulation {
     inv.ammo--;
     p.lastFire = this.time;
     p.shotIndex++;
-    const eye = { x: p.x, y: p.y + (p.crouch ? 0.98 : 1.58), z: p.z },
-      moving = Math.min(1, Math.hypot(p.vx, p.vz) / 4.6);
-    const spread =
-      (w.spread * (input.ads ? 0.22 : 1) + moving * w.moveSpread + (p.grounded ? 0 : 0.05)) *
-      (p.crouch ? 0.7 : 1) *
-      (p.shotIndex === 1 && moving < 0.1 ? 0.2 : 1);
+    const eye = { x: p.x, y: p.y + (p.sliding ? 0.62 : p.crouch ? 0.98 : 1.58), z: p.z };
+    const spread = spreadFor(p, input, this.time);
+    const shotSeed = this.seed + p.shotIndex * 71 + inv.ammo * 11 + Math.floor(this.time * 60);
+    const aimDirection = sampleCone(forwardDirection(p.yaw, p.pitch), spread.aim, shotSeed);
+    recordShot(inv, this.time);
     const impacts = [];
     for (let pellet = 0; pellet < w.pellets; pellet++) {
-      const seed =
-        this.seed + p.shotIndex * 71 + inv.ammo * 11 + pellet * 31 + Math.floor(this.time * 60);
-      const yaw = p.yaw + (random(seed) - 0.5) * spread * 2,
-        pitch = p.pitch + (random(seed + 1) - 0.5) * spread * 2;
-      const dir = {
-        x: -Math.sin(yaw) * Math.cos(pitch),
-        y: Math.sin(pitch),
-        z: -Math.cos(yaw) * Math.cos(pitch),
-      };
+      const dir = spread.pellets
+        ? sampleCone(aimDirection, spread.pellets, shotSeed + pellet * 31 + 301)
+        : aimDirection;
       let nearest = 90,
         hit = null,
         part = null,
@@ -286,13 +377,7 @@ export class Simulation {
       }
       for (const z of this.zombies.values()) {
         if (z.hp <= 0) continue;
-        const def = ZOMBIES[z.type],
-          h = def.height;
-        const parts = [
-          ['head', { x: z.x, y: h * 0.89, z: z.z }, h * 0.13],
-          ['body', { x: z.x, y: h * 0.57, z: z.z }, h * 0.22],
-          ['limb', { x: z.x, y: h * 0.25, z: z.z }, h * 0.21],
-        ];
+        const parts = zombieHitboxes(z);
         for (const [region, center, radius] of parts) {
           const t = raySphere(eye, dir, center, radius);
           if (t < nearest) {
@@ -343,8 +428,26 @@ export class Simulation {
         }
       }
       this.event('kill', { player: p?.id, zombie: z.id, head, points: head ? 150 : 100 });
+      this.dropBlueprint(z, p);
       this.zombies.delete(z.id);
     }
+  }
+  dropBlueprint(z, p) {
+    const seed = this.seed + this.nextZombie * 43 + this.round * 71;
+    if (random(seed) >= 0.05) return;
+    const available = Object.keys(WEAPONS).filter(
+      (weapon) => weapon !== 'vx9' && !p?.unlockedWeapons.includes(weapon),
+    );
+    if (!available.length) return;
+    const weapon = available[Math.floor(random(seed + 1) * available.length)];
+    this.blueprints.push({
+      id: `drop-${z.id}`,
+      type: 'blueprint',
+      weapon,
+      name: `${WEAPONS[weapon].name} BLUEPRINT`,
+      x: z.x,
+      z: z.z,
+    });
   }
   damagePlayer(p, amount, source) {
     if (p.downed || p.eliminated || this.state !== 'playing') return;
@@ -432,6 +535,9 @@ export class Simulation {
       id: `z${n}`,
       type,
       ...location,
+      approachAngle: random(n * 73 + this.round * 31) * Math.PI * 2,
+      approachRadius: 0.55 + random(n * 97 + this.round * 43) * 0.3,
+      approachSide: random(n * 101 + this.round * 59) * 2 - 1,
       yaw: 0,
       hp: health,
       maxHp: health,
@@ -489,9 +595,14 @@ export class Simulation {
           this.event('attack', { zombie: z.id });
         }
       } else if (!z.windup) {
-        const dir = (z.type === 'boss' ? this.bossNav : this.nav).direction(z, target);
-        let dx = dir.x,
-          dz = dir.z;
+        const approachRadius = z.type === 'boss' ? 0.45 : z.approachRadius;
+        const approachTarget = {
+          x: target.x + Math.cos(z.approachAngle) * approachRadius,
+          z: target.z + Math.sin(z.approachAngle) * approachRadius,
+        };
+        const dir = (z.type === 'boss' ? this.bossNav : this.nav).direction(z, approachTarget);
+        let dx = dir.x - dir.z * z.approachSide * 0.3,
+          dz = dir.z + dir.x * z.approachSide * 0.3;
         for (const other of all) {
           if (other.id === z.id) continue;
           const d = distance(z, other),
@@ -568,6 +679,7 @@ export class Simulation {
         name: 'UNLOCK SECTOR',
       })),
       ...STATIONS,
+      ...this.blueprints,
       ...COLLECTIBLES.filter((c) => !this.collected.includes(c.id)).map((c) => ({
         ...c,
         type: 'log',
@@ -612,6 +724,28 @@ export class Simulation {
       this.event('log', { player: p.id, title: item.title, text: item.text });
       return true;
     }
+    if (item.type === 'blueprint') {
+      this.blueprints = this.blueprints.filter((drop) => drop.id !== item.id);
+      if (!p.unlockedWeapons.includes(item.weapon)) p.unlockedWeapons.push(item.weapon);
+      this.event('unlock', {
+        player: p.id,
+        weapon: item.weapon,
+        name: WEAPONS[item.weapon].name,
+      });
+      return true;
+    }
+    if (item.type === 'weapon') {
+      if (p.unlockedWeapons.includes(item.weapon)) {
+        this.event('notice', {
+          player: p.id,
+          message: `${item.name} BLUEPRINT READY — PRESS B TO BUY`,
+        });
+        return false;
+      }
+      p.unlockedWeapons.push(item.weapon);
+      this.event('unlock', { player: p.id, weapon: item.weapon, name: item.name });
+      return true;
+    }
     if (p.points < item.price) return fail('INSUFFICIENT POINTS');
     const inv = p.inventory[p.slot];
     if (item.type === 'door') {
@@ -620,23 +754,10 @@ export class Simulation {
       this.obs = obstacles(this.openDoors);
       this.nav.setObstacles(this.obs);
       this.bossNav.setObstacles(this.obs);
-    } else if (item.type === 'weapon' || item.type === 'mystery') {
+    } else if (item.type === 'mystery') {
       const keys = Object.keys(WEAPONS).filter((k) => k !== 'vx9'),
         weapon = item.weapon || keys[Math.floor(random(this.seed + this.time) * keys.length)];
-      const owned = p.inventory.find((i) => i.id === weapon);
-      if (owned) {
-        owned.reserve = WEAPONS[weapon].reserve;
-        owned.ammo = this.capacity(owned);
-        p.slot = p.inventory.indexOf(owned);
-      } else {
-        const next = makeInventory(weapon);
-        if (p.inventory.length < 3) {
-          p.inventory.push(next);
-          p.slot = p.inventory.length - 1;
-        } else p.inventory[p.slot] = next;
-      }
-      p.reloadEnd = 0;
-      this.event('weapon', { player: p.id, weapon });
+      this.grantWeapon(p, weapon);
     } else if (item.type === 'ammo') {
       if (inv.reserve >= WEAPONS[inv.id].reserve && p.grenades >= 2) return fail('AMMUNITION FULL');
       inv.reserve = WEAPONS[inv.id].reserve;
@@ -676,10 +797,12 @@ export class Simulation {
       remaining: this.toSpawn + this.zombies.size,
       openDoors: [...this.openDoors],
       collected: [...this.collected],
+      blueprints: this.blueprints.map((drop) => ({ ...drop })),
       players: [...this.players.values()].map((p) => ({
         ...p,
         inventory: p.inventory.map((i) => ({ ...i })),
         perks: [...p.perks],
+        unlockedWeapons: [...p.unlockedWeapons],
       })),
       zombies: [...this.zombies.values()].map(({ contributors, ...z }) => ({ ...z })),
     };

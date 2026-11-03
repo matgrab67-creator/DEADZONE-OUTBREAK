@@ -20,6 +20,11 @@ try {
   await page.goto(`http://127.0.0.1:${server.port}`);
   await page.locator('#menu:not(.hidden)').waitFor({ timeout: 60000 });
   assert.equal(await page.evaluate(() => typeof window.__DEADZONE__), 'undefined');
+  await page.locator('#open-index').click();
+  await page.locator('[data-profile="weapon:vx9"]').click();
+  await page.waitForFunction(()=>document.getElementById('index-canvas').width>100);
+  assert.equal(await page.locator('#detail-title').innerText(),'VX-9');
+  await page.locator('#detail-back').click();await page.locator('#index-back').click();
   await page.locator('#solo').click();
   await page.waitForTimeout(300);
   if (await page.locator('#pause-modal').isVisible()) await page.locator('#resume').click();
@@ -28,6 +33,11 @@ try {
   await page.waitForTimeout(300);
   await page.mouse.up();
   assert.ok(Number(await page.locator('#ammo').innerText()) < 14);
+  await page.keyboard.press('KeyB');await page.locator('#shop-modal:not(.hidden)').waitFor();
+  await page.locator('[data-category="supplies"]').click();await page.locator('[data-buy="armor"]').click();
+  await page.waitForFunction(()=>document.getElementById('points').textContent==='0');
+  assert.match(await page.locator('#armor').innerText(),/100/);
+  await page.keyboard.press('Escape');await page.waitForFunction(()=>document.pointerLockElement!==null&&document.getElementById('modal-backdrop').classList.contains('hidden'));
   await page.keyboard.press('Escape');
   await page.locator('#quit').click();
   await page.locator('#multiplayer').click();
@@ -36,7 +46,7 @@ try {
   assert.match(await page.locator('#room-code').innerText(), /^[A-F0-9]{6}$/);
   assert.deepEqual(errors, []);
   console.log(
-    'PASS: production build serves, solo fires, private lobby connects, development debug API is absent, no browser errors.',
+    'PASS: production index previews, solo combat, shop purchase and private lobby work; debug API is absent; no browser errors.',
   );
 } finally {
   await browser?.close();
