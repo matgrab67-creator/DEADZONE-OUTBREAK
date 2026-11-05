@@ -1,18 +1,26 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import { obstacles } from './map.js';
 import { WEAPONS } from './config.js';
+import { terrainMesh } from './Forest.js';
 
 let ready;
 export const initPhysics = () => (ready ||= RAPIER.init());
 export class Physics {
-  constructor(open = []) {
+  constructor(open = [], chapter = 1, forest = null) {
     this.world = new RAPIER.World({ x: 0, y: -20, z: 0 });
     this.world.timestep = 1 / 60;
-    this.world.createCollider(RAPIER.ColliderDesc.cuboid(28, 0.2, 21).setTranslation(0, -0.2, 0));
+    this.world.createCollider(
+      RAPIER.ColliderDesc.cuboid(forest ? 220 : 28, 0.2, forest ? 220 : 21).setTranslation(
+        0,
+        -0.2,
+        0,
+      ),
+    );
     this.statics = new Map();
     this.actors = new Map();
     this.actorHandles = new Set();
-    for (const b of obstacles(open))
+    this.terrain = new Set();
+    for (const b of forest?.obstacles || obstacles(open, chapter))
       this.statics.set(
         b.id,
         this.world.createCollider(
@@ -22,6 +30,32 @@ export class Physics {
     this.controller = this.world.createCharacterController(0.015);
     this.controller.enableSnapToGround(0.15);
     this.controller.setSlideEnabled(true);
+    this.world.step();
+    if (forest) this.syncForest(forest);
+  }
+  syncForest({ seed, ring, obstacles: boxes }) {
+    const ids = new Set(boxes.map((b) => b.id));
+    for (const [id, c] of this.statics)
+      if (!ids.has(id) || id.startsWith('forest-edge')) {
+        this.world.removeCollider(c, true);
+        this.statics.delete(id);
+      }
+    for (const b of boxes)
+      if (!this.statics.has(b.id))
+        this.statics.set(
+          b.id,
+          this.world.createCollider(
+            RAPIER.ColliderDesc.cuboid(b.w / 2, b.h / 2, b.d / 2).setTranslation(b.x, b.y, b.z),
+          ),
+        );
+    for (let z = -ring; z <= ring; z++)
+      for (let x = -ring; x <= ring; x++) {
+        const key = `${x}:${z}`;
+        if (this.terrain.has(key)) continue;
+        const mesh = terrainMesh(seed, x, z);
+        this.world.createCollider(RAPIER.ColliderDesc.trimesh(mesh.vertices, mesh.indices));
+        this.terrain.add(key);
+      }
     this.world.step();
   }
   openDoor(id) {

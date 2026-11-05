@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { random } from '../../shared/config.js';
+import { prepareSkinGeometry } from './SkinMaterials.js';
 
 function grainTexture() {
   const size = 128,
@@ -334,6 +335,7 @@ export class ModelBuilder {
     this.parts.muzzle = muzzle;
   }
   finish(extra) {
+    const skinSurface = prepareSkinGeometry(this.root, this.m);
     // Keep moving parts separate, merge rigid details by material within each assembly.
     const groups = [];
     this.root.traverse((o) => {
@@ -362,6 +364,7 @@ export class ModelBuilder {
       parts: this.parts,
       materials: Object.values(this.m),
       texture: this.texture,
+      skinSurface,
       ...extra,
     };
   }
@@ -371,7 +374,7 @@ export function disposeWeaponModel(model) {
   if (!model) return;
   const geometries = new Set(),
     materials = new Set(model.materials),
-    textures = new Set([model.texture]);
+    textures = new Set([model.texture, model.skinTexture].filter(Boolean));
   model.root.traverse((o) => {
     if (o.isMesh) {
       geometries.add(o.geometry);

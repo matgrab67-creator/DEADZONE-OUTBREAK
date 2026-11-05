@@ -1,10 +1,16 @@
 import { ZOMBIES } from './config.js';
+import { zombieVerticalOffset } from './ZombieLifecycle.js';
 
-export function zombieHitboxes(z) {
-  const h = ZOMBIES[z.type].height,
+export function zombieHitboxes(z, time = Infinity) {
+  const h = ZOMBIES[z.type].height * (z.finalBoss ? 1.35 : 1),
     sin = Math.sin(z.yaw || 0),
     cos = Math.cos(z.yaw || 0);
-  const centre = (y, forward = 0) => ({ x: z.x - sin * forward, y, z: z.z - cos * forward });
+  const offset = Number.isFinite(time) ? zombieVerticalOffset(z, time) : z.y || 0;
+  const centre = (y, forward = 0) => ({
+    x: z.x - sin * forward,
+    y: y + offset,
+    z: z.z - cos * forward,
+  });
   if (z.type === 'crawler')
     return [
       ['head', centre(0.595, 0.38), 0.15],

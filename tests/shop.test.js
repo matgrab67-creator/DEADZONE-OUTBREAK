@@ -37,15 +37,27 @@ test('a weapon must be unlocked at its physical station before buying anywhere',
   p.x = -18;
   p.z = 15;
   assert.ok(sim.action('p', { type: 'shopBuy', item: 'weapon:raven', price: 0 }));
-  assert.equal(p.points, 2000);
+  assert.equal(p.points, 3000 - WEAPONS.raven.price);
   assert.equal(p.inventory[p.slot].id, 'raven');
   assert.ok(sim.action('p', { type: 'shopBuy', item: 'weapon:raven' }));
-  assert.equal(p.points, 2000, 'equipping an owned weapon must be free');
+  assert.equal(p.points, 3000 - WEAPONS.raven.price, 'equipping an owned weapon must be free');
 });
 test('new weapons have balanced prices and unlock only at their matching stations', (t) => {
   const { sim, p } = setup(t);
   p.points = 10000;
-  for (const id of ['desertEagle', 'tec9', 'scout', 'pbs1']) {
+  for (const id of [
+    'desertEagle',
+    'tec9',
+    'scout',
+    'pbs1',
+    'glock17',
+    'beretta92',
+    'mp5',
+    'p90',
+    'scarh',
+    'aug',
+    'barrett',
+  ]) {
     const station = STATIONS.find((item) => item.weapon === id);
     assert.ok(station, `${id} has a physical unlock station`);
     assert.equal(station.price, WEAPONS[id].price);
@@ -149,5 +161,5 @@ test('full inventories replace the selected slot without losing the other weapon
     p.inventory.map((i) => i.id),
     ['vx9', 'lynx', 'iron'],
   );
-  assert.equal(p.points, 2800);
+  assert.equal(p.points, 5000 - WEAPONS.lynx.price);
 });

@@ -3,12 +3,14 @@ import { createKnifeModel, createWeaponModel } from './WeaponModels.js';
 import { disposeWeaponModel } from './ModelBuilder.js';
 import { canonicalKnifeId } from '../../shared/Knives.js';
 import { WEAPONS } from '../../shared/config.js';
+import { applyWeaponSkin } from './SkinMaterials.js';
 
 const smoothstep = (a, b, value) => THREE.MathUtils.smoothstep(value, a, b);
 
 export class WeaponView {
-  constructor(scene) {
+  constructor(scene, skins = null) {
     this.scene = scene;
+    this.skins = skins;
     this.group = new THREE.Group();
     scene.add(this.group);
     this.model = null;
@@ -160,6 +162,9 @@ export class WeaponView {
       (knifeEquipped && variant !== this.variant)
     )
       this.build(modelId, inv.upgraded, variant);
+    const key = knifeEquipped ? `knife:${this.knifeModel}` : inv.id;
+    const finish = this.skins?.equipped(key) || 'factory';
+    if (this.model.skinId !== finish) applyWeaponSkin(this.model, key, finish);
     const model = this.model,
       parts = model.parts;
     this.slashTime = Math.max(0, this.slashTime - dt);
@@ -279,13 +284,20 @@ export class WeaponView {
     if (parts.pump)
       parts.pump.position.z =
         Math.sin(THREE.MathUtils.clamp((this.shotAge - 0.12) / 0.4, 0, 1) * Math.PI) * 0.065;
+    if (parts.barrel)
+      parts.barrel.position.z +=
+        Math.sin(Math.min(1, this.shotAge / 0.22) * Math.PI) * (model.barrelRecoil || 0);
+    if (parts.hammer)
+      parts.hammer.rotation.x = Math.sin(Math.min(1, this.shotAge / 0.12) * Math.PI) * 0.42;
     if (reloading && parts.magazine) {
       const out = smoothstep(0.15, 0.36, progress) * (1 - smoothstep(0.52, 0.76, progress));
-      parts.magazine.position.y -= out * 0.19;
-      parts.magazine.position.z += out * 0.025;
+      const motion = model.magazineMotion || [0, -0.19, 0.025];
+      parts.magazine.position.x += out * motion[0];
+      parts.magazine.position.y += out * motion[1];
+      parts.magazine.position.z += out * motion[2];
       parts.magazine.rotation.x = out * 0.17;
       if (parts.supportHand) {
-        parts.supportHand.position.y -= out * 0.12;
+        parts.supportHand.position.y += out * (motion[1] > 0 ? 0.1 : -0.12);
         parts.supportHand.position.z += out * 0.12;
         parts.supportHand.rotation.z -= out * 0.3;
       }

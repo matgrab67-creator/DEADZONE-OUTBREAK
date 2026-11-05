@@ -1,3 +1,8 @@
+import { EXPANDED_WEAPONS } from './Arsenal.js';
+import { NEW_INFECTED } from './Infected.js';
+import { FOREST_WEAPON_PRICES } from './WeaponProgression.js';
+import { SURVIVOR_ARSENAL } from './SurvivorArsenal.js';
+
 export const TICK = 1 / 60;
 export const PLAYER_RADIUS = 0.32;
 export const WEAPONS = {
@@ -56,12 +61,14 @@ export const WEAPONS = {
     price: 950,
   },
   raven: {
-    name: 'RAVEN-47',
+    // Retain the historic wire/save ID so existing discovered entries stay valid.
+    name: 'AK-47',
+    caliber: '7.62×39mm',
     type: 'ASSAULT RIFLE',
-    damage: 32,
+    damage: 40,
     magazine: 30,
     reserve: 180,
-    rate: 0.105,
+    rate: 0.1,
     reload: 2.15,
     spread: 0.009,
     moveSpread: 0.04,
@@ -71,7 +78,7 @@ export const WEAPONS = {
     pellets: 1,
     color: 0x73836b,
     recoil: [0.8, 1.2, 1.6, 1.9, 2.1, 1.7, 1.3],
-    price: 1000,
+    price: 1800,
   },
   spectre: {
     name: 'M4-SPECTRE',
@@ -184,7 +191,10 @@ export const WEAPONS = {
     price: 2400,
     zoom: 24,
   },
+  ...EXPANDED_WEAPONS,
+  ...SURVIVOR_ARSENAL,
 };
+for (const [id, price] of Object.entries(FOREST_WEAPON_PRICES)) WEAPONS[id].price = price;
 export const PERKS = {
   heart: { name: 'IRON HEART', price: 1500, description: 'Maximum health 180' },
   hands: { name: 'QUICK HANDS', price: 1200, description: 'Reload 35% faster' },
@@ -199,6 +209,7 @@ export const ZOMBIES = {
   crawler: { health: 70, speed: 2.0, damage: 10, radius: 0.35, height: 0.75, color: 0x96906b },
   exploder: { health: 110, speed: 1.7, damage: 45, radius: 0.43, height: 1.85, color: 0x9c9c55 },
   boss: { health: 2100, speed: 1.05, damage: 38, radius: 0.7, height: 3.1, color: 0x8b7365 },
+  ...NEW_INFECTED,
 };
 export const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 export const distance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);

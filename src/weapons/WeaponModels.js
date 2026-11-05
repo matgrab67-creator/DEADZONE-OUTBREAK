@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { ModelBuilder } from './ModelBuilder.js';
+import { REAL_WEAPON_MODELS } from './RealWeaponModels.js';
+import { applyWeaponSkin } from './SkinMaterials.js';
+import { SURVIVOR_WEAPON_MODELS } from './SurvivorWeaponModels.js';
 
 function pistol(b) {
   const slide = b.assembly('slide'),
@@ -225,7 +228,7 @@ function raven(b) {
   curvedMagazine(b);
   rifleStock(b, { wood: true });
   b.ironSights(-0.155, -0.452, 0.067, b.root, true);
-  b.marking('RAVEN–47', 'BLACKSITE  //  7.6', -0.023, -0.007, -0.058, 0.084, 0.022);
+  b.marking('AK-47', '7.62 × 39', -0.023, -0.007, -0.058, 0.084, 0.022);
   b.hand('supportHand', -0.011, -0.045, -0.27, true);
   b.muzzle(-0.564, 0.012);
   return {
@@ -768,9 +771,11 @@ function pbs1(b) {
   };
 }
 
-export function createWeaponModel(id, upgraded = false) {
+export function createWeaponModel(id, upgraded = false, skin = 'factory') {
   const builder = new ModelBuilder(id, upgraded);
   const factories = {
+    ...REAL_WEAPON_MODELS,
+    ...SURVIVOR_WEAPON_MODELS,
     vx9: pistol,
     desertEagle,
     tec9,
@@ -783,7 +788,9 @@ export function createWeaponModel(id, upgraded = false) {
     pbs1,
   };
   if (!factories[id]) throw new Error(`Unknown weapon model: ${id}`);
-  return builder.finish(factories[id](builder));
+  const model = builder.finish(factories[id](builder));
+  applyWeaponSkin(model, id, skin);
+  return model;
 }
 
 export { createKnifeModel } from './KnifeModels.js';

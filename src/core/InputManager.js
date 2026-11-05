@@ -29,10 +29,21 @@ export class InputManager {
       if (e.repeat) return;
       if (e.code === 'Escape') this.onAction({ type: 'pause' });
       if (e.code === 'KeyR') this.onAction({ type: 'reload' });
+      if (e.code === 'KeyE') this.onAction({ type: 'interact' });
       if (e.code === 'KeyG') this.onAction({ type: 'grenade' });
       if (e.code === 'KeyF') this.onAction({ type: 'knifeToggle' });
       if (e.code === 'KeyV') this.onAction({ type: 'inspect' });
       if (e.code === 'KeyB') this.onAction({ type: 'shop' });
+      if (e.code === 'KeyN') this.onAction({ type: 'skins' });
+      if (e.code === 'KeyL') this.onAction({ type: 'flashlight' });
+      if (e.code === 'KeyH') this.onAction({ type: 'equipment', item: 'medkit' });
+      if (e.code === 'KeyJ') this.onAction({ type: 'equipment', item: 'molotov' });
+      if (e.code === 'KeyT') this.onAction({ type: 'equipment', item: 'trap' });
+      if (e.code === 'KeyO') this.onAction({ type: 'equipment', item: 'lantern' });
+      if (e.code === 'KeyK') this.onAction({ type: 'craftMenu' });
+      if (e.code === 'KeyP') this.onAction({ type: 'trainingMenu' });
+      if (e.code === 'KeyM') this.onAction({ type: 'map' });
+      if (e.code === 'KeyU') this.onAction({ type: 'trainingReset' });
       if (['Digit1', 'Digit2', 'Digit3'].includes(e.code))
         this.onAction({ type: 'switch', slot: Number(e.code.slice(-1)) - 1 });
     });

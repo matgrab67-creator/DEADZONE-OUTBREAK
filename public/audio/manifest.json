@@ -1,0 +1,47 @@
+{
+  "pistol-9mm.mp3": {
+    "url": "https://cdn.freesound.org/previews/427/427592_3094998-hq.mp3",
+    "bytes": 39141,
+    "sha256": "8b7f20ce7c150556c49ad11bfbd0e014a68666991b5b3c063e47020d211a92b8"
+  },
+  "rifle-556.mp3": {
+    "url": "https://cdn.freesound.org/previews/427/427596_3094998-hq.mp3",
+    "bytes": 61260,
+    "sha256": "000843aa0f9909d0edadeb48d4107e6ecb00842689f339e27c38399b7290d211"
+  },
+  "desert-eagle.mp3": {
+    "url": "https://cdn.freesound.org/previews/151/151071_2732486-hq.mp3",
+    "bytes": 43526,
+    "sha256": "7c71a0fc6167f3b2f434e93bd973044e4c250c874a4b4014f49bcd9c6efcf2b0"
+  },
+  "ak47.opus": {
+    "url": "https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/SMG/FireFar.opus",
+    "bytes": 13052,
+    "sha256": "743c86684e4049664959314807099055158c39d84a04f577b3340e9d08576d8b"
+  },
+  "rifle-close.opus": {
+    "url": "https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Rifle/FireLocal.opus",
+    "bytes": 4811,
+    "sha256": "3f7dbe48bf0a44dff112a1cdca4947e09f45d44a6053ee36663e47b3bb4304bf"
+  },
+  "shotgun.opus": {
+    "url": "https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Shotgun/FireStereo.opus",
+    "bytes": 21918,
+    "sha256": "50b61ee9eba1a13c81399fd7793b8fcf902938c9578095dc3bc90555fca320f3"
+  },
+  "magazine.opus": {
+    "url": "https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Rifle/ReloadLocal.opus",
+    "bytes": 17127,
+    "sha256": "8b9e6463eebdfe72d2730d46f65239e1f6e940a615f8049883cb87aaaa4aff15"
+  },
+  "mechanism.opus": {
+    "url": "https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Rifle/RaiseLocal.opus",
+    "bytes": 4392,
+    "sha256": "f893e899438e1dd1eea0b95492ac5661171e90fc3b2e51b7570566b60b8acf2f"
+  },
+  "pump.opus": {
+    "url": "https://raw.githubusercontent.com/DeathByDenim/openspades-free-pak/main/Sounds/Weapons/Shotgun/ReloadLocal.opus",
+    "bytes": 15402,
+    "sha256": "b949ac4892627ccf360521635dcf1c197194d78083e1c7462578a64051f3471a"
+  }
+}

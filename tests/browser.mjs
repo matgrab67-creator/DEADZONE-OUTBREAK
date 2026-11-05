@@ -23,6 +23,7 @@ const watch = (page) => {
   });
 };
 const waitReady = async (page) => {
+  await page.addInitScript(()=>localStorage.setItem('deadzone-settings',JSON.stringify({language:'en'})));
   await page.goto(url);
   await page.locator('#menu:not(.hidden)').waitFor({ timeout: 60000 });
 };
@@ -47,7 +48,7 @@ try {
   await page.locator('#open-index').click();
   assert.match(
     await page.locator('#index-counts').innerText(),
-    /0 \/ 6 THREATS\s+·\s+1 \/ 10 WEAPONS/,
+    /0 \/ 13 THREATS\s+·\s+1 \/ 27 WEAPONS/,
   );
   assert.equal(
     await page.locator('#weapon-index .index-card:not(.undiscovered) h4').innerText(),
@@ -127,6 +128,8 @@ try {
     g.sim.zombies.clear();
     g.sim.countdown = 100;
     const z = g.sim.spawnZombie('normal');
+    z.spawnAt = g.sim.time - 3;
+    z.emergeEnd = g.sim.time - 1;
     z.x = -18;
     z.z = 12;
     z.hp = 60;
@@ -150,15 +153,17 @@ try {
   await page.evaluate(() => {
     const g = window.__DEADZONE__,
       p = g.sim.players.get('solo');
-    p.x = -10.8;
-    p.z = 10;
+    p.x = 0;
+    p.z = -18.3;
+    g.sim.defenses[0].hp = 100;
+    p.resources.wood = 10;
     p.points = 1000;
     g.input.yaw = -Math.PI / 2;
   });
   await page.keyboard.down('KeyE');
   await page.waitForTimeout(400);
   await page.keyboard.up('KeyE');
-  assert.ok(await page.evaluate(() => window.__DEADZONE__.sim.openDoors.includes('d1')));
+  assert.ok(await page.evaluate(() => window.__DEADZONE__.sim.defenses[0].hp >= 250));
   await page.evaluate(() => {
     const g = window.__DEADZONE__,
       p = g.sim.players.get('solo');
@@ -210,6 +215,8 @@ try {
     game.input.yaw = -0.35;
     game.input.pitch = 0;
     const boss = game.sim.spawnZombie('boss');
+    boss.spawnAt = game.sim.time - 3;
+    boss.emergeEnd = game.sim.time - 1;
     boss.x = 22;
     boss.z = -12;
   });

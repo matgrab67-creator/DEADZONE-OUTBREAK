@@ -93,6 +93,7 @@ test('knife attacks damage a zombie in front and enforce attack cooldown', (t) =
   const target = sim.spawnZombie('normal');
   target.x = p.x;
   target.z = p.z - 1.5;
+  sim.time = target.emergeEnd;
   assert.equal(sim.action('p', { type: 'knifeAttack' }), true);
   assert.equal(sim.zombies.has(target.id), false);
   assert.equal(p.kills, 1);
@@ -133,6 +134,7 @@ test('authoritative weapon hits head, awards points and enforces fire rate', (t)
   z.x = p.x;
   z.z = p.z - 3;
   z.hp = 70;
+  sim.time = z.emergeEnd;
   sim.fire(p, { ads: true });
   assert.equal(sim.zombies.has(z.id), false);
   assert.equal(p.kills, 1);
@@ -198,16 +200,16 @@ test('weapon purchase, perk and upgrade have real effects and no double charges'
   assert.equal(p.points, 10000);
   assert.ok(sim.action('p', { type: 'shopBuy', item: 'weapon:raven' }));
   assert.equal(p.inventory[p.slot].id, 'raven');
-  assert.equal(p.points, 9000);
+  assert.equal(p.points, 10000 - WEAPONS.raven.price);
   sim.time += 0.5;
   p.x = 5;
   p.z = 4.5;
   assert.ok(sim.action('p', { type: 'interact' }));
   assert.equal(p.maxHp, 180);
-  assert.equal(p.points, 7500);
+  assert.equal(p.points, 10000 - WEAPONS.raven.price - 1500);
   sim.time += 0.5;
   assert.equal(sim.action('p', { type: 'interact' }), false);
-  assert.equal(p.points, 7500);
+  assert.equal(p.points, 10000 - WEAPONS.raven.price - 1500);
   sim.time += 0.5;
   p.x = 18;
   p.z = -14.5;
@@ -237,15 +239,16 @@ test('AI routes around a container without entering solid geometry', (t) => {
 test('zombies approach from different angles instead of following one line', (t) => {
   const { sim, p } = setup();
   t.after(() => sim.dispose());
-  p.x = -20;
-  p.z = 12;
+  p.x = -18;
+  p.z = 15;
   const zombies = Array.from({ length: 8 }, () => sim.spawnZombie('normal'));
   for (const z of zombies) {
-    z.x = -20;
-    z.z = 3;
+    z.x = -18;
+    z.z = 11;
+    z.emergeEnd = sim.time;
   }
   sim.updateZombies(1 / 60);
-  const headings = zombies.map((z) => Math.atan2(z.x + 20, 3 - z.z));
+  const headings = zombies.map((z) => Math.atan2(z.x + 18, 11 - z.z));
   const spread = Math.max(...headings) - Math.min(...headings);
   assert.ok(spread > 0.5, `approach headings were too similar: ${headings.join(', ')}`);
 });
@@ -297,7 +300,7 @@ test('teammates revive only at close range and eliminated players return between
   assert.equal(q.eliminated, false);
   assert.equal(q.hp, 100);
 });
-test('repair rewards are limited, grenades consume inventory, and all six weapons function', (t) => {
+test('repair rewards are limited, grenades consume inventory, and the entire arsenal functions', (t) => {
   const { sim, p } = setup();
   t.after(() => sim.dispose());
   p.x = -24;
@@ -344,7 +347,7 @@ test('legal pistol fire and reload clear three real waves without bypassing comb
   t.after(() => sim.dispose());
   for (let tick = 0; tick < 60 * 90 && sim.state === 'playing'; tick++) {
     const target = [...sim.zombies.values()]
-      .filter((z) => sim.hasSight(p, z))
+      .filter((z) => sim.hasSight(p, z) && sim.time >= z.emergeEnd)
       .sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z))[0];
     sim.input('p', {
       seq: tick + 1,

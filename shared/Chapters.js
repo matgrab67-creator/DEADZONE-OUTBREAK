@@ -1,0 +1,75 @@
+export const WAVES_PER_CHAPTER = 15;
+const prop = (id, x, y, z, w, h, d, kind) => ({ id, x, y, z, w, h, d, kind });
+export const CHAPTERS = [
+  {
+    name: 'BLACKSITE–13',
+    subtitle: 'CONTAINMENT FAILURE',
+    outdoor: false,
+    fog: 0x17241e,
+    background: 0x111b19,
+    light: 0xc1d8ce,
+    tint: 0xb8dbb5,
+    palette: { wall: 0x89948b, floor: 0x8a9990, steel: 0x3d4b46, container: 0x59674a },
+  },
+  {
+    name: 'ASHFALL',
+    subtitle: 'SURFACE QUARANTINE',
+    outdoor: true,
+    fog: 0x332821,
+    background: 0x221b19,
+    light: 0xf0b57c,
+    tint: 0xe8a366,
+    palette: { wall: 0x8b7363, floor: 0x857768, steel: 0x514640, container: 0x8b573e },
+    sectorNames: [
+      'EVACUATION YARD',
+      'BURNED CHECKPOINT',
+      'FIELD HOSPITAL',
+      'SERVICE TRENCH',
+      'SUPPLY DEPOT',
+      'INCINERATOR',
+    ],
+    props: [
+      prop('ashTruck', -20, 1.05, 7, 2.8, 2.1, 6, 'container'),
+      prop('ashBarricade', -13.5, 0.65, 10, 1.5, 1.3, 3, 'crate'),
+      prop('ashWreck', -22, 0.6, 13, 3, 1.2, 1.5, 'crate'),
+      prop('ashClinic', 17, 0.8, 10, 4, 1.6, 1.5, 'lab'),
+      prop('ashTruck2', 23, 1.05, 7, 2.8, 2.1, 5, 'container'),
+      prop('ashSecurity', 0, 0.7, 6, 5, 1.4, 1.5, 'desk'),
+      prop('ashTrench', -21, 1, -10, 2, 2, 5, 'pipes'),
+      prop('ashSupply', -2, 1.05, -8, 4, 2.1, 2.5, 'container'),
+      prop('ashIncinerator', 20, 1.8, -10, 3.2, 3.6, 3.2, 'reactor'),
+    ],
+  },
+  {
+    name: 'FROST VAULT',
+    subtitle: 'CRYOGENIC CONTAINMENT',
+    outdoor: false,
+    fog: 0x1b2933,
+    background: 0x111b28,
+    light: 0x9dcce8,
+    tint: 0x8ecde8,
+    palette: { wall: 0x8a9da7, floor: 0x718c99, steel: 0x3c5466, container: 0x5c7c89 },
+    sectorNames: [
+      'AIRLOCK',
+      'DECONTAMINATION',
+      'CRYO WARD',
+      'COOLANT TUNNELS',
+      'VAULT STORAGE',
+      'ZERO CORE',
+    ],
+    props: [
+      prop('icePod1', -22, 1.4, 8, 2.5, 2.8, 2.5, 'server'),
+      prop('icePod2', -15, 1.4, 7, 2.5, 2.8, 2.5, 'server'),
+      prop('iceDesk', 0, 0.7, 7, 4, 1.4, 2, 'lab'),
+      prop('iceRack', 5.5, 1.4, 12, 1.5, 2.8, 3, 'server'),
+      prop('iceWard', 17, 0.8, 9, 4, 1.6, 1.6, 'lab'),
+      prop('icePod3', 23, 1.4, 13, 2.5, 2.8, 2.5, 'server'),
+      prop('iceCoolant', -20, 1.2, -9, 3, 2.4, 4, 'pipes'),
+      prop('iceCrates', 1, 0.8, -9, 4, 1.6, 2, 'crate'),
+      prop('iceCore', 18, 1.8, -10, 3.2, 3.6, 3.2, 'reactor'),
+    ],
+  },
+];
+export const chapterDefinition = (number = 1) =>
+  CHAPTERS[(Math.max(1, number) - 1) % CHAPTERS.length];
+export const chapterWave = (round) => ((Math.max(1, round) - 1) % WAVES_PER_CHAPTER) + 1;

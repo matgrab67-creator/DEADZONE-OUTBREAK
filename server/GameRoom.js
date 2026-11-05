@@ -42,7 +42,11 @@ export class GameRoom {
     if (![...this.members.values()].every((p) => p.ready))
       throw new Error('Every operator must be ready.');
     this.sim?.dispose();
-    this.sim = new Simulation({ multiplayer: true });
+    this.sim = new Simulation({
+      multiplayer: true,
+      seed: Math.floor(Math.random() * 0x7fffffff),
+      forest: true,
+    });
     for (const member of this.members.values()) this.sim.addPlayer(member.id, member.name);
     this.io.to(this.code).emit('started', this.sim.snapshot());
   }

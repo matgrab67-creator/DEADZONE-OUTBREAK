@@ -1,0 +1,65 @@
+// Schematics unlock purchase eligibility; firearms themselves still cost credits.
+export const BASIC_WEAPONS = [
+  'vx9',
+  'glock17',
+  'beretta92',
+  'desertEagle',
+  'tec9',
+  'vortex',
+  'mp5',
+  'iron',
+  'raven',
+  'spectre',
+  'm1911',
+  'p226',
+  'cz75',
+  'uzi',
+  'r870',
+];
+export const SPECIAL_WEAPONS = [
+  'p90',
+  'aug',
+  'scarh',
+  'scout',
+  'lynx',
+  'pbs1',
+  'vector',
+  'benelli',
+  'fal',
+  'g36',
+  'axmc',
+  'barrett',
+];
+// Guaranteed supply sites prevent unlucky seeds from locking an entire weapon out.
+export const BLUEPRINT_ANCHORS = {
+  '-2:0': 'p90',
+  '2:0': 'aug',
+  '0:-2': 'scarh',
+  '0:2': 'scout',
+  '-3:-2': 'lynx',
+  '3:2': 'pbs1',
+  '0:-4': 'barrett',
+  '-2:-2': 'vector',
+  '2:-2': 'benelli',
+  '-2:2': 'fal',
+  '2:2': 'g36',
+  '3:-3': 'axmc',
+};
+export const FOREST_WEAPON_PRICES = {
+  desertEagle: 1700,
+  tec9: 1100,
+  vortex: 1250,
+  mp5: 1900,
+  iron: 1800,
+  raven: 2600,
+  spectre: 2900,
+  p90: 3200,
+  aug: 3700,
+  scarh: 4400,
+  scout: 2800,
+  lynx: 3600,
+  pbs1: 4200,
+  barrett: 6000,
+};
+export const blueprintRegion = (id) =>
+  id === 'barrett' ? 'GŁĘBOKI LAS / OD FALI 11' : 'UKRYTE SKRZYNIE W LESIE / OD FALI 4';

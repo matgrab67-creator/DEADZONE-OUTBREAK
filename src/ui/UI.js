@@ -1,8 +1,26 @@
 import { WEAPONS, ZOMBIES, PERKS } from '../../shared/config.js';
+import { NEW_INFECTED } from '../../shared/Infected.js';
+import { chapterDefinition, WAVES_PER_CHAPTER } from '../../shared/Chapters.js';
+import { chapterSectors } from '../../shared/map.js';
 import { sectorAt } from '../../shared/map.js';
 import { spreadFor } from '../../shared/Ballistics.js';
 import { KNIFE_MODELS, canonicalKnifeId } from '../../shared/Knives.js';
 import { ShopUI } from './ShopUI.js';
+import { SkinsUI } from './SkinsUI.js';
+import { SkinInventory } from '../weapons/SkinInventory.js';
+import { SKIN_WEAPONS, SKIN_FINISHES_PER_WEAPON, skinKey } from '../../shared/Skins.js';
+import { CraftUI } from './CraftUI.js';
+import { TrainingUI } from './TrainingUI.js';
+import { TacticalMap } from './TacticalMap.js';
+import { campUpgradeCost } from '../../shared/CampSystems.js';
+import { Localization } from './Localization.js';
+import { TRAINING_DRILLS } from '../../shared/Training.js';
+import {
+  inCamp,
+  forestBounds,
+  forestWeather,
+  forestChapterDefinition,
+} from '../../shared/Forest.js';
 
 export const DEFAULT_SETTINGS = {
   quality: 'high',
@@ -13,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   headBob: true,
   dynamicResolution: false,
   knifeModel: 'karambit',
+  language: 'pl',
 };
 export function readSettings() {
   try {
@@ -21,6 +40,7 @@ export function readSettings() {
       ...DEFAULT_SETTINGS,
       ...saved,
       knifeModel: canonicalKnifeId(saved.knifeModel),
+      language: saved.language === 'en' ? 'en' : 'pl',
     };
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -32,6 +52,9 @@ const emblem =
   '<svg viewBox="0 0 40 40" fill="none"><path d="M20 3 36 12v17L20 38 4 29V12Z" stroke="currentColor" stroke-width="1.4"/><path d="m20 10 10 6v10l-10 6-10-6V16l10-6Zm0 7-4 3v5l4 2 4-2v-5l-4-3Z" fill="currentColor"/></svg>';
 const CODEX_KEY = 'deadzone-field-index';
 const ZOMBIE_INFO = {
+  ...Object.fromEntries(
+    Object.entries(NEW_INFECTED).map(([id, z]) => [id, { name: z.name, note: z.note }]),
+  ),
   normal: {
     name: 'SHAMBLER',
     note: 'Standard infected. Slow, persistent, and dangerous in numbers.',
@@ -47,15 +70,16 @@ const ZOMBIE_INFO = {
   },
   exploder: { name: 'EXPLODER', note: 'Volatile organism. Keep your distance when it gets close.' },
   boss: {
-    name: 'THE EXPERIMENT',
-    note: 'A massive, phased organism. Watch for its shockwave wind-up.',
+    name: 'THE HOLLOW',
+    note: 'A massive infected. Watch for its shockwave wind-up.',
   },
 };
 const WEAPON_INFO = {
   vx9: 'Reliable sidearm issued to every operator.',
   desertEagle: 'A slow, heavy pistol with punishing headshots and difficult recoil.',
   tec9: 'A fast machine pistol that stays controllable while moving.',
-  raven: 'Hard-hitting assault rifle for mid-range engagements.',
+  raven:
+    'AK-47 in 7.62×39mm: steel receiver, wooden furniture and curved 30-round magazine. Powerful rounds and pronounced recoil; best in short bursts.',
   spectre: 'Suppressed rifle with precise, controlled fire.',
   vortex: 'High-rate submachine gun built for close quarters.',
   iron: 'Pump-action shotgun that devastates at short range.',
@@ -99,8 +123,9 @@ function readCodex() {
   }
 }
 export class UI {
-  constructor(settings) {
+  constructor(settings, skins = new SkinInventory()) {
     this.settings = settings;
+    this.skins = skins;
     this.root = document.getElementById('app');
     this.noticeTimer = 0;
     this.hitTimer = 0;
@@ -114,6 +139,7 @@ export class UI {
     this.bind();
     this.saveCodex();
     this.renderIndex();
+    this.i18n = new Localization(this.root, settings.language);
   }
   build() {
     this.root.innerHTML = `
@@ -141,18 +167,74 @@ export class UI {
       <div id="scoreboard" class="scoreboard hidden"><span class="eyebrow">OPERATION / BLACKSITE–13</span><h2>SQUAD STATUS</h2><table><thead><tr><th>OPERATOR</th><th>KILLS</th><th>ASSISTS</th><th>POINTS</th><th>STATUS</th></tr></thead><tbody id="score-rows"></tbody></table></div><div id="downed" class="downed hidden"><span class="eyebrow">OPERATOR DOWN</span><h2>HOLD ON.</h2><p id="downed-text"></p></div>
     </div>
     <div id="modal-backdrop" class="modal-backdrop hidden"><section id="settings-modal" class="modal hidden"><button class="modal-close" aria-label="Close settings">×</button><span class="eyebrow">OPERATOR PREFERENCES</span><h2>SETTINGS</h2><div class="settings-grid"><label>GRAPHICS QUALITY<select id="quality"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></label><label>MOUSE SENSITIVITY <output id="sensitivity-out"></output><input id="sensitivity" type="range" min="0.5" max="6" step="0.1"></label><label>FIELD OF VIEW <output id="fov-out"></output><input id="fov" type="range" min="65" max="110" step="1"></label><label>VIEWMODEL FOV <output id="viewmodelFov-out"></output><input id="viewmodelFov" type="range" min="50" max="90" step="1"></label><label>MASTER VOLUME <output id="volume-out"></output><input id="volume" type="range" min="0" max="1" step="0.05"></label><label class="toggle">HEAD BOB<input id="headBob" type="checkbox"></label><label class="toggle">DYNAMIC RESOLUTION<input id="dynamicResolution" type="checkbox"></label></div><button id="settings-done" class="primary">APPLY & RETURN ${arrow}</button></section>
-      <section id="how-modal" class="modal hidden"><button class="modal-close" aria-label="Close field manual">×</button><span class="eyebrow">READ BEFORE DEPLOYMENT</span><h2>FIELD MANUAL</h2><p class="muted">Survive each wave. Eliminate threats to earn points. Explore the facility and buy better equipment before the next breach.</p><div class="controls-grid"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>LMB</kbd> Fire / knife attack</span><span><kbd>RMB</kbd> Aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Buy / interact / hold to revive</span><span><kbd>SHIFT</kbd> Walk quietly</span><span><kbd>CTRL</kbd> Crouch / slide while running</span><span><kbd>F</kbd> Equip / stow knife</span><span><kbd>SPACE</kbd> Jump</span><span><kbd>G</kbd> Grenade</span><span><kbd>1 2 3</kbd> Switch firearm</span><span><kbd>TAB</kbd> Scoreboard</span></div><div class="manual-note"><b>KEEP MOVING. AIM FOR THE HEAD.</b><p>Health regenerates after 6 seconds without damage. Start with 500 points. Buy the RAVEN-47 for 1,000 or open the checkpoint for 750. Bosses arrive every fifth round.</p><p>In co-op, hold E beside a downed teammate for 3 seconds. Complete a round to bring eliminated operators back.</p></div><p class="muted small">Desktop keyboard & mouse required. Click DEPLOY to capture the pointer; Esc releases it.</p></section>
+      <section id="how-modal" class="modal hidden"><button class="modal-close" aria-label="Close field manual">×</button><span class="eyebrow">READ BEFORE DEPLOYMENT</span><h2>FIELD MANUAL</h2><p class="muted">Survive each wave. Eliminate threats to earn points. Explore the facility and buy better equipment before the next breach.</p><div class="controls-grid"><span><kbd>W A S D</kbd> Move</span><span><kbd>MOUSE</kbd> Look</span><span><kbd>LMB</kbd> Fire / knife attack</span><span><kbd>RMB</kbd> Aim</span><span><kbd>R</kbd> Reload</span><span><kbd>E</kbd> Buy / interact / hold to revive</span><span><kbd>SHIFT</kbd> Walk quietly</span><span><kbd>CTRL</kbd> Crouch / slide while running</span><span><kbd>F</kbd> Equip / stow knife</span><span><kbd>SPACE</kbd> Jump</span><span><kbd>G</kbd> Grenade</span><span><kbd>1 2 3</kbd> Switch firearm</span><span><kbd>TAB</kbd> Scoreboard</span></div><div class="manual-note"><b>KEEP MOVING. AIM FOR THE HEAD.</b><p>Health regenerates after 6 seconds without damage. Start with 500 points. Buy the AK-47 for 1,800 or open the checkpoint for 750. Bosses arrive every fifth round.</p><p>In co-op, hold E beside a downed teammate for 3 seconds. Complete a round to bring eliminated operators back.</p></div><p class="muted small">Desktop keyboard & mouse required. Click DEPLOY to capture the pointer; Esc releases it.</p></section>
       <section id="pause-modal" class="modal narrow hidden"><span class="eyebrow" id="pause-label">OPERATION SUSPENDED</span><h2>TAKE A BREATH.</h2><button id="resume" class="primary">RESUME OPERATION ${arrow}</button><button id="pause-settings" class="outline">SETTINGS</button><button id="quit" class="text-button">ABORT TO MAIN MENU</button></section>
       <section id="over-modal" class="modal narrow hidden"><span class="eyebrow red">SIGNAL LOST / OPERATION FAILED</span><h2>OVERRUN.</h2><p class="muted">The facility claims another squad.</p><div class="end-stats"><div><strong id="end-round">1</strong><span>ROUND REACHED</span></div><div><strong id="end-kills">0</strong><span>ELIMINATIONS</span></div><div><strong id="end-time">00:00</strong><span>TIME SURVIVED</span></div></div><button id="restart" class="primary">DEPLOY AGAIN ${arrow}</button><button id="over-menu" class="text-button">RETURN TO MAIN MENU</button></section>
     </div><div id="fatal" class="fatal hidden" role="alert"></div><div class="desktop-note">A keyboard and mouse are required for deployment.</div>`;
     this.el = {};
     for (const node of this.root.querySelectorAll('[id]')) this.el[node.id] = node;
+    const chapterLabel = this.el.hud.querySelector('.sector-info .eyebrow');
+    chapterLabel.id = 'chapter-label';
+    this.el['chapter-label'] = chapterLabel;
+    const transition = document.createElement('div');
+    transition.id = 'chapter-transition';
+    transition.className = 'chapter-transition hidden';
+    transition.innerHTML =
+      '<span id="chapter-number" class="eyebrow"></span><h2 id="chapter-title"></h2><p id="chapter-subtitle"></p><span class="chapter-rule"></span><small>WEAPONS · POINTS · PERKS SECURED</small><small id="chapter-transfer"></small>';
+    this.el.hud.append(transition);
+    this.el['chapter-transition'] = transition;
+    for (const node of transition.querySelectorAll('[id]')) this.el[node.id] = node;
     const detail = document.createElement('div');
     detail.id = 'index-detail';
     detail.className = 'index-detail hidden';
     detail.innerHTML =
       '<button id="detail-back" class="text-button">← ALL PROFILES</button><div class="detail-layout"><div class="model-stage"><canvas id="index-canvas" aria-label="Rotating 3D model"></canvas><span class="model-stage-label">3D PROFILE / AUTOMATIC ROTATION</span></div><article class="detail-copy"><span id="detail-category" class="eyebrow"></span><h3 id="detail-title"></h3><p id="detail-description" class="muted"></p><dl id="detail-stats"></dl><p id="detail-status" class="detail-status"></p></article></div>';
     this.el['index-panel'].append(detail);
+    const soundButton = document.createElement('button');
+    soundButton.id = 'detail-sound';
+    soundButton.className = 'outline detail-sound';
+    soundButton.textContent = '▶ PLAY SHOT SOUND';
+    soundButton.type = 'button';
+    detail.querySelector('.detail-copy').append(soundButton);
+    const customize = document.createElement('button');
+    customize.id = 'customize-skin';
+    customize.className = 'outline';
+    customize.textContent = 'WYBIERZ SKIN';
+    detail.querySelector('.detail-copy').append(customize);
+    const skinPanel = document.createElement('section');
+    skinPanel.id = 'skin-panel';
+    detail
+      .querySelector('.detail-copy')
+      .insertBefore(skinPanel, detail.querySelector('#detail-stats'));
+    this.skinPanel = new SkinsUI(skinPanel, this.skins, {
+      preview: (finish) => this.on.previewSkin?.(finish),
+      equip: (key, finish) => this.on.skinEquipped?.(key, finish),
+      rotate: (on) => this.on.rotatePreview?.(on),
+      weapon: (key) => {
+        const w = SKIN_WEAPONS.find((w) => w.key === key);
+        if (w) this.openIndexEntry(w.kind, w.id);
+      },
+    });
+    const armory = document.createElement('button');
+    armory.id = 'open-skins';
+    armory.className = 'secondary-button armory-button';
+    armory.innerHTML = `<span class="button-index">✦</span><span><strong>SKINS / ARMORY</strong><small>Wykończenia za punkty fal</small></span>`;
+    this.el.home.querySelector('.menu-actions').insertBefore(armory, this.el.how);
+    this.el['open-skins'] = armory;
+    const pauseSkins = document.createElement('button');
+    pauseSkins.id = 'pause-skins';
+    pauseSkins.className = 'outline';
+    pauseSkins.textContent = 'SKINS / ARMORY';
+    this.el['pause-modal'].insertBefore(pauseSkins, this.el['pause-settings']);
+    this.el['pause-skins'] = pauseSkins;
+    const skinModal = document.createElement('section');
+    skinModal.id = 'skin-modal';
+    skinModal.className = 'modal skin-modal hidden';
+    skinModal.innerHTML =
+      '<button id="skin-close" class="shop-close" aria-label="Zamknij kolekcję skinów">×</button><div id="skin-host"></div>';
+    this.el['modal-backdrop'].append(skinModal);
+    this.el['skin-modal'] = skinModal;
+    for (const node of skinModal.querySelectorAll('[id]')) this.el[node.id] = node;
     const knifeSection = document.createElement('section');
     knifeSection.className = 'index-section';
     knifeSection.innerHTML =
@@ -166,6 +248,44 @@ export class UI {
     for (const parent of [detail, knifeSection, shop])
       for (const node of parent.querySelectorAll('[id]')) this.el[node.id] = node;
     this.el['shop-modal'] = shop;
+    const craft = document.createElement('section');
+    craft.id = 'craft-modal';
+    craft.className = 'modal craft-modal hidden';
+    this.el['modal-backdrop'].append(craft);
+    this.el['craft-modal'] = craft;
+    this.crafting = new CraftUI(craft, (recipe) => this.on.craft?.(recipe));
+    craft.querySelector('#craft-close').addEventListener('click', () => this.on.resume?.());
+    const training = document.createElement('section');
+    training.id = 'training-modal';
+    training.className = 'modal training-modal hidden';
+    this.el['modal-backdrop'].append(training);
+    this.el['training-modal'] = training;
+    this.trainingPanel = new TrainingUI(training, (options) => this.on.trainingSetup?.(options));
+    const map = document.createElement('section');
+    map.id = 'map-modal';
+    map.className = 'modal map-modal hidden';
+    this.el['modal-backdrop'].append(map);
+    this.el['map-modal'] = map;
+    this.mapPanel = new TacticalMap(map, (x, z) => this.on.ping?.(x, z), this.settings);
+    map.querySelector('#map-close').addEventListener('click', () => this.on.resume?.());
+    training.querySelector('#training-close').addEventListener('click', () => this.on.resume?.());
+    const trainingButton = document.createElement('button');
+    trainingButton.id = 'open-training';
+    trainingButton.className = 'secondary-button training-menu-button';
+    trainingButton.innerHTML =
+      '<span class="button-index">◎</span><span><strong>ARENA TRENINGOWA</strong><small>Precyzja · tracking · refleks / pełny arsenał</small></span>';
+    this.el.home.querySelector('.menu-actions').insertBefore(trainingButton, this.el['open-index']);
+    trainingButton.addEventListener('click', () => this.on.training?.());
+    const forestStatus = document.createElement('div');
+    forestStatus.id = 'forest-status';
+    forestStatus.className = 'forest-status';
+    this.el.hud.append(forestStatus);
+    this.el['forest-status'] = forestStatus;
+    const kit = document.createElement('div');
+    kit.id = 'survival-kit';
+    kit.className = 'survival-kit';
+    this.el.hud.append(kit);
+    this.el['survival-kit'] = kit;
     this.el['index-detail'] = detail;
     const scope = document.createElement('div');
     scope.id = 'scope-overlay';
@@ -189,6 +309,11 @@ export class UI {
     }
     knifeLabel.append(knifeSelect);
     this.el['settings-modal'].querySelector('.settings-grid').append(knifeLabel);
+    const langLabel = document.createElement('label');
+    langLabel.innerHTML =
+      'JĘZYK<select id="language"><option value="pl">Polski</option><option value="en">English</option></select>';
+    this.el['settings-modal'].querySelector('.settings-grid').prepend(langLabel);
+    this.el.language = langLabel.querySelector('select');
     this.el.knifeModel = knifeSelect;
     const knifeHint = document.createElement('span');
     knifeHint.innerHTML = '<kbd>F</kbd> KNIFE';
@@ -204,6 +329,70 @@ export class UI {
     this.el['how-modal'].querySelector('.controls-grid').append(shopControl);
     this.el['how-modal'].querySelector('.manual-note p').textContent =
       'Health regenerates after 6 seconds without damage. Use E at weapon stations to unlock their blueprints for free, then B to buy weapons, ammo, shield plates and supplies. Bosses arrive every fifth round.';
+    this.forestTheme();
+  }
+  forestTheme() {
+    this.el['load-status'].textContent = 'Wyznaczanie szlaków i budowa obozu…';
+    this.el.home.querySelector('.hero-copy').innerHTML =
+      'Las pochłonął ostatnie drogi.<br>Utrzymaj obóz. Odkryj, co zostało.';
+    this.el.home.querySelector('.warning-label').innerHTML =
+      '<span class="tiny-cross">✛</span> OSTATNI SYGNAŁ / OBÓZ 07';
+    this.el.home.querySelector('.hero-meta').innerHTML =
+      '<span><b>01</b> WSPÓLNY OBÓZ</span><span><b>∞</b> FALE</span><span><b>01–04</b> OCALAŁYCH</span>';
+    const card = this.el.home.querySelector('.operation-card');
+    card.querySelector('.map-diagram').outerHTML =
+      '<div class="forest-map" aria-label="Mapa obozu i rozszerzających się rejonów lasu"><svg viewBox="0 0 280 210"><g fill="none" stroke="#849273" stroke-width=".6"><path d="M25 20 80 185 130 24 185 185 250 20M10 75 270 75M10 145 270 145" opacity=".25"/><circle cx="140" cy="105" r="78" stroke-dasharray="3 5"/><circle cx="140" cy="105" r="52"/><path d="M140 15v180M30 105h220" stroke-dasharray="3 3"/></g><path class="map-camp" d="m124 90 30-4 9 27-35 10Z"/><text x="104" y="144">OBÓZ 07</text><text x="103" y="24">GŁĘBOKI LAS</text><text x="12" y="200">NOWE SZLAKI / NOWE ZAPASY</text></svg></div>';
+    card.querySelector('.operation-title .eyebrow').textContent = 'STREFA ZAKAŻENIA / DZIKI LAS';
+    card.querySelector('.operation-title h2').textContent = 'THE LOST FOREST';
+    card.querySelector('.operation-title p').textContent = 'Obóz ocalałych w porzuconym lesie';
+    card.querySelector('.card-bottom').innerHTML = '<i></i> UTRZYMAJ OSTATNIE SCHRONIENIE';
+    this.el.menu.querySelector('.menu-footer > span').innerHTML =
+      '<i class="status-square"></i> OBÓZ OCALAŁYCH <b>/</b> DZIEŃ 38';
+    this.el.menu.querySelector('.footer-right').textContent =
+      'DEADZONE: OUTBREAK • THE LOST FOREST';
+    this.el['how-modal'].querySelector('.muted').textContent =
+      'Broń obozu i zbieraj zasoby. Las rośnie przy falach 4, 7, 11, 16 i kolejnych. Co 15 fal zaczynasz nowy rozdział wyprawy, zachowując obóz, ekwipunek i odkryte skrytki.';
+    this.el['how-modal'].querySelector('.manual-note p').textContent =
+      '15 broni podstawowych ma schematy od startu. Schematy 12 specjalnych znajdziesz wyłącznie w ukrytych skrzyniach w lesie; Barrett jest w głębokim lesie od fali 11. B otwiera magazyn. E przy stole lub K otwiera crafting. E przy barykadzie naprawia ją za 2 drewna. Arena treningowa w menu pozwala ćwiczyć wszystkimi broniami bez opłat. M otwiera mapę, a tablica przy radiostacji zleca wyprawy.';
+    const recoveryNote = document.createElement('p');
+    recoveryNote.textContent =
+      'Leczenie: do 5 m od ogniska, po 5 sekundach bez obrażeń, 4 HP/s. H używa apteczki także w lesie. B / Zapasy: latarka i baterie oraz latarnia ochronna. O stawia latarnię na 180 sekund; zwykłe zombie boją się jej w promieniu 6 m. W ostatniej fali pokonaj obstawę BIG BOSSA, aby zdjąć jego tarczę. N: skiny za 25 punktów od ukończonej fali, wypłata po meczu.';
+    this.el['how-modal'].querySelector('.manual-note').append(recoveryNote);
+    for (const [key, label] of [
+      ['L', 'Latarka'],
+      ['O', 'Postaw latarnię ochronną'],
+      ['H', 'Użyj apteczki'],
+      ['J', 'Rzuć Mołotowem'],
+      ['T', 'Ustaw pułapkę'],
+      ['K', 'Warsztat / receptury'],
+      ['N', `${SKIN_WEAPONS.length * SKIN_FINISHES_PER_WEAPON} wykończeń / punkty za fale`],
+      ['M', 'Mapa taktyczna / znaczniki'],
+      ['P', 'Trening / wybór broni'],
+      ['U', 'Trening / nowa próba'],
+    ]) {
+      const node = document.createElement('span');
+      node.innerHTML = `<kbd>${key}</kbd> ${label}`;
+      this.el['how-modal'].querySelector('.controls-grid').append(node);
+    }
+    const replacements = {
+      'BLACKSITE–13 / SECURE CONNECTION': 'THE LOST FOREST / PRZYGOTOWANIE WYPRAWY',
+      'BLACKSITE–13 / OPERATOR DATABASE': 'THE LOST FOREST / DZIENNIK OCALAŁYCH',
+      'EUROPEAN RESEARCH DIVISION': 'OBÓZ OCALAŁYCH',
+      'LOCAL SYSTEM ONLINE': 'OGNISKO NADAL PŁONIE',
+      'CONTAINMENT BREACH': 'HORDA NADCHODZI',
+      'THE EXPERIMENT': 'THE HOLLOW',
+      'The facility claims another squad.': 'Las pochłonął kolejną grupę.',
+      POINTS: 'KREDYTY',
+      'TRANSFERRING SQUAD': 'NOWY ROZDZIAŁ WYPRAWY',
+    };
+    const walker = document.createTreeWalker(this.root, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+      if (replacements[node.textContent.trim()])
+        node.textContent = replacements[node.textContent.trim()];
+      else if (node.textContent.includes('BLACKSITE'))
+        node.textContent = node.textContent.replaceAll('BLACKSITE–13', 'THE LOST FOREST');
+    }
   }
   bind() {
     const click = (id, fn) => this.el[id].addEventListener('click', fn);
@@ -212,6 +401,13 @@ export class UI {
     click('open-index', () => this.showIndex());
     click('index-back', () => this.home());
     click('detail-back', () => this.closeIndexDetail());
+    click('open-skins', () => this.on.armory?.());
+    click('pause-skins', () => this.on.armory?.());
+    click('skin-close', () => this.on.resume?.());
+    click('customize-skin', () => this.enterFinishMode());
+    click('detail-sound', () => {
+      if (this.indexSelection?.kind === 'weapon') this.on.previewSound?.(this.indexSelection.id);
+    });
     click('shop-close', () => this.on.resume?.());
     click('how', () => this.modal('how'));
     click('settings-top', () => this.modal('settings'));
@@ -254,11 +450,12 @@ export class UI {
         this.settings[key] =
           input.type === 'checkbox'
             ? input.checked
-            : key === 'quality' || key === 'knifeModel'
+            : key === 'quality' || key === 'knifeModel' || key === 'language'
               ? input.value
               : Number(input.value);
         this.settingLabels();
         this.on.settings?.(this.settings);
+        this.i18n?.setLocale(this.settings.language);
         try {
           localStorage.setItem('deadzone-settings', JSON.stringify(this.settings));
         } catch {}
@@ -266,6 +463,30 @@ export class UI {
     }
     this.settingLabels();
     addEventListener('keydown', (e) => {
+      if (this.inGame && this.activeModal === 'map' && ['KeyM', 'Escape'].includes(e.code)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) this.on.resume?.();
+        return;
+      }
+      if (this.inGame && this.activeModal === 'training' && ['KeyP', 'Escape'].includes(e.code)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) this.on.resume?.();
+        return;
+      }
+      if (this.inGame && this.activeModal === 'craft' && ['KeyK', 'Escape'].includes(e.code)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) this.on.resume?.();
+        return;
+      }
+      if (this.inGame && this.activeModal === 'skin' && ['KeyN', 'Escape'].includes(e.code)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) this.on.resume?.();
+        return;
+      }
       if (this.inGame && this.activeModal === 'shop' && ['KeyB', 'Escape'].includes(e.code)) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -383,7 +604,7 @@ export class UI {
         const description = document.createElement('p');
         description.textContent = known
           ? kind === 'weapon'
-            ? info[id]
+            ? definition.description || info[id]
             : info[id].note
           : kind === 'weapon'
             ? 'Acquire this weapon to recover its specifications.'
@@ -454,14 +675,20 @@ export class UI {
           : 'FIELD EQUIPMENT';
     this.el['detail-description'].textContent =
       kind === 'weapon'
-        ? WEAPON_INFO[id]
+        ? definition.description || WEAPON_INFO[id]
         : kind === 'zombie'
           ? ZOMBIE_INFO[id].note
           : KNIFE_INFO[id].note;
     const values =
       kind === 'weapon'
         ? [
-            ['DAMAGE', definition.damage],
+            ['BODY DAMAGE', definition.damage],
+            [
+              'HEAD DAMAGE',
+              Math.round(definition.headDamage ?? definition.damage * definition.head),
+            ],
+            ['PRICE', `${definition.price || 250} POINTS`],
+            ...(definition.caliber ? [['CALIBRE', definition.caliber]] : []),
             ['MAGAZINE', `${definition.magazine} ROUNDS`],
             ['RESERVE', definition.reserve],
             ['FIRE RATE', `${Math.round(60 / definition.rate)} RPM`],
@@ -483,6 +710,10 @@ export class UI {
               ['CONTROLS', 'F EQUIP · V INSPECT'],
             ];
     const list = this.el['detail-stats'];
+    this.el['detail-sound'].classList.toggle('hidden', kind !== 'weapon');
+    this.el['customize-skin'].classList.toggle('hidden', kind === 'zombie' || this.skinMode);
+    this.skinPanel.container.classList.toggle('hidden', kind === 'zombie' || !this.skinMode);
+    if (kind !== 'zombie') this.skinPanel.setWeapon(skinKey(kind, id));
     list.replaceChildren();
     for (const [label, value] of values) {
       const dt = document.createElement('dt'),
@@ -498,18 +729,73 @@ export class UI {
       : kind === 'weapon'
         ? 'PREVIEW / ACQUIRE THIS WEAPON TO RECORD IT'
         : 'PREVIEW / ENCOUNTER THIS THREAT TO RECORD IT';
-    this.on.inspectEntry?.(kind, id);
+    this.on.inspectEntry?.(
+      kind,
+      id,
+      kind === 'zombie' ? 'factory' : this.skins.equipped(skinKey(kind, id)),
+    );
+  }
+  enterFinishMode() {
+    if (!this.indexSelection || this.indexSelection.kind === 'zombie') return;
+    this.skinMode = true;
+    this.el['index-detail'].classList.add('finish-mode');
+    this.el['index-panel'].querySelector('.index-heading h2').innerHTML = 'ARMORY<span>.</span>';
+    this.el['index-counts'].textContent =
+      `${SKIN_WEAPONS.length * SKIN_FINISHES_PER_WEAPON} FINISHES / 25 PTS PER CLEARED WAVE`;
+    this.el['customize-skin'].classList.add('hidden');
+    this.skinPanel.container.classList.remove('hidden');
+    this.on.resizePreview?.();
+  }
+  showArmory(key = 'vx9') {
+    const w = SKIN_WEAPONS.find((w) => w.key === key) || SKIN_WEAPONS[0];
+    if (this.inGame) {
+      this.el['skin-host'].append(this.el['index-detail']);
+      this.modal('skin');
+      this.el['detail-back'].classList.add('hidden');
+    } else this.showIndex();
+    this.skinMode = true;
+    this.el['index-detail'].classList.add('finish-mode');
+    if (!this.inGame) {
+      this.el['index-panel'].querySelector('.index-heading h2').innerHTML = 'ARMORY<span>.</span>';
+      this.el['index-counts'].textContent =
+        `${SKIN_WEAPONS.length * SKIN_FINISHES_PER_WEAPON} FINISHES / 25 PTS PER CLEARED WAVE`;
+    }
+    this.openIndexEntry(w.kind, w.id);
   }
   closeIndexDetail() {
+    if (this.el?.['index-detail']?.parentElement === this.el?.['skin-host'])
+      this.el['index-panel'].append(this.el['index-detail']);
+    this.skinMode = false;
+    this.el?.['index-detail']?.classList.remove('finish-mode');
+    const heading = this.el?.['index-panel']?.querySelector('.index-heading h2');
+    if (heading) heading.innerHTML = 'FIELD INDEX<span>.</span>';
+    this.el?.['detail-back']?.classList.remove('hidden');
     this.indexSelection = null;
     this.el?.['index-detail']?.classList.add('hidden');
     this.el?.['index-panel']?.querySelector('.index-content').classList.remove('hidden');
     this.on.closeEntry?.();
+    if (this.el?.['index-counts'])
+      this.el['index-counts'].textContent =
+        `${this.codex.zombies.size} / ${Object.keys(ZOMBIES).length} THREATS · ${this.codex.weapons.size} / ${Object.keys(WEAPONS).length} WEAPONS`;
+  }
+  showCraft(state, player, multiplayer) {
+    this.modal('craft');
+    this.crafting.update(player, multiplayer);
+  }
+  showTraining(state, p) {
+    this.modal('training');
+    this.trainingPanel.update(state, p);
+  }
+  showMap(state, p) {
+    this.modal('map');
+    this.mapPanel.update(state, p);
   }
   showShop(state, player, multiplayer) {
     this.modal('shop');
     this.shop.feedback(
-      'Find a weapon station to unlock its blueprint. B or Esc returns to the operation.',
+      player.training
+        ? 'POLIGON / wszystkie bronie za darmo. B lub Esc wraca do treningu.'
+        : 'Podstawowe schematy są gotowe. Specjalnych szukaj w skrzyniach w lesie. B lub Esc wraca do gry.',
     );
     this.shop.update(player, multiplayer);
   }
@@ -546,7 +832,18 @@ export class UI {
   }
   modal(type) {
     this.el['modal-backdrop'].classList.remove('hidden');
-    for (const key of ['settings', 'how', 'pause', 'over', 'shop'])
+    if (this.activeModal === 'skin' && type !== 'skin') this.closeIndexDetail();
+    for (const key of [
+      'settings',
+      'how',
+      'pause',
+      'over',
+      'shop',
+      'skin',
+      'craft',
+      'training',
+      'map',
+    ])
       this.el[`${key}-modal`].classList.toggle('hidden', key !== type);
     this.activeModal = type;
   }
@@ -572,6 +869,7 @@ export class UI {
     this.el['hit-text'].textContent = '';
   }
   hideModal() {
+    if (this.activeModal === 'skin') this.closeIndexDetail();
     this.el['modal-backdrop'].classList.add('hidden');
     this.activeModal = null;
   }
@@ -592,6 +890,7 @@ export class UI {
     this.el.notice.textContent = message;
     this.noticeTimer = duration;
     if (this.activeModal === 'shop') this.shop.feedback(message);
+    if (this.activeModal === 'craft') this.crafting.feedback(message);
   }
   announce(title, subtitle = 'Hold your ground.') {
     this.el['round-announcement'].querySelector('strong').textContent = title;
@@ -599,6 +898,8 @@ export class UI {
     this.roundTimer = 3;
   }
   event(e, id) {
+    if (e.type === 'contractReward')
+      this.announce('WYPRAWA UKOŃCZONA', '+450 kredytów i materiały dla każdego ocalałego.');
     if (e.type === 'unlock' && e.player === id)
       this.notice(`${e.name} BLUEPRINT UNLOCKED — PRESS B TO BUY`, 4);
     if (e.type === 'hit' && e.player === id) {
@@ -612,19 +913,54 @@ export class UI {
           ? 'HEADSHOT'
           : '';
     }
+    if (e.type === 'trainingStart') this.announce('TRENING / 60 SEKUND', TRAINING_DRILLS[e.drill]);
+    if (e.type === 'trainingComplete')
+      this.announce(
+        'WYNIK TRENINGU',
+        `${e.kills} eliminacji · ${e.headshots} trafień w głowę · celność ${Math.round((e.hits / Math.max(1, e.shots)) * 100)}% · U — ponów · P — wybór`,
+      );
     if (e.type === 'damage' && e.player === id) this.damage = Math.min(0.8, this.damage + 0.35);
     if (e.type === 'round')
       this.announce(
-        e.boss ? 'THE EXPERIMENT' : `ROUND ${String(e.round).padStart(2, '0')}`,
-        e.boss
-          ? 'Unstable organism detected. Keep your distance.'
-          : 'Containment breach. Eliminate all threats.',
+        e.finalBoss
+          ? 'BIG BOSS / WŁADCA LASU'
+          : e.boss
+            ? 'THE HOLLOW'
+            : `WAVE ${String(e.wave || e.round).padStart(2, '0')}`,
+        e.finalBoss
+          ? 'Pokonaj przywołaną obstawę, aby zranić bossa. Trzy etapy walki.'
+          : e.boss
+            ? 'Unstable organism detected. Keep your distance.'
+            : 'Horda wychodzi z lasu. Obroń obóz i oczyść szlaki.',
       );
-    if (e.type === 'clear') this.announce('SECTOR SECURED', 'Resupply. Next wave in 12 seconds.');
+    if (e.type === 'clear')
+      this.announce(
+        'SECTOR SECURED',
+        `Uzupełnij zapasy. Następna fala za ${e.duration || 25} sekund.`,
+      );
+    if (e.type === 'forestExpanded')
+      this.announce(
+        'NOWY SZLAK W LESIE',
+        `Las jest dostępny do ${e.edge} m od środka obozu. Szukaj opuszczonych schronień i zapasów.`,
+      );
+    if (e.type === 'chapterReady')
+      this.announce(
+        forestChapterDefinition(e.chapter).name,
+        'Nowy rozdział wyprawy. Uzupełnij zapasy — obóz nadal stoi.',
+      );
+    if (e.type === 'ability' && e.ability === 'scream')
+      this.notice('SCREAMER CHARGING — INTERRUPT IT', 1.2);
     if (e.type === 'notice' && e.player === id) this.notice(e.message);
     if (e.type === 'purchase' && e.player === id) this.notice(`${e.name} / ACQUIRED`);
     if (e.type === 'log' && e.player === id) this.notice(`${e.title} — ${e.text}`, 9);
     if (e.type === 'bosswindup') this.notice('SHOCKWAVE INCOMING — MOVE AWAY', 1.4);
+    if (e.type === 'bossSummon')
+      this.announce(
+        'BOSS PRZYWOŁUJE OBSTAWĘ',
+        `Etap ${e.stage}/3 — najpierw pokonaj przywołane zombie.`,
+      );
+    if (e.type === 'bossExposed')
+      this.announce('BOSS ODSŁONIĘTY', 'Obstawa pokonana — teraz atakuj bossa!');
     if (e.type === 'revived') this.notice('OPERATOR REVIVED');
   }
   update(
@@ -643,24 +979,95 @@ export class UI {
   ) {
     this.discover(state, p);
     if (this.activeModal === 'shop') this.shop.update(p, multiplayer);
+    if (this.activeModal === 'craft') this.crafting.update(p, multiplayer);
+    if (this.activeModal === 'map') this.mapPanel.update(state, p);
     const text = (id, value) => {
       const el = this.el[id],
-        str = String(value);
+        str = this.i18n?.t(value) || String(value);
       if (el.textContent !== str) el.textContent = str;
     };
     const inv = p.inventory[p.slot],
       w = WEAPONS[inv.id];
-    text('sector-name', sectorAt(p).name);
+    const chapter = state.chapter || 1,
+      chapterInfo = state.forest ? forestChapterDefinition(chapter) : chapterDefinition(chapter);
+    text('chapter-label', `CHAPTER ${String(chapter).padStart(2, '0')} / ${chapterInfo.name}`);
+    text(
+      'sector-name',
+      state.forest
+        ? inCamp(p.x, p.z)
+          ? 'OBÓZ OCALAŁYCH / 07'
+          : `LEŚNY SZLAK / ${Math.round(p.x)} : ${Math.round(p.z)}`
+        : chapterSectors(chapter).find((s) => s.id === sectorAt(p).id).name,
+    );
+    if (state.training) {
+      const t = state.training;
+      text('chapter-label', 'POLIGON OCALAŁYCH / TRENING');
+      text('sector-name', TRAINING_DRILLS[t.drill]);
+      text(
+        'forest-status',
+        `CELNOŚĆ ${Math.round(t.accuracy * 100)}% · TRAFIENIA ${t.hits}/${t.shots}\nHEADSHOTY ${t.headshots} · ELIMINACJE ${t.kills}`,
+      );
+      text(
+        'survival-kit',
+        '[P] BROŃ I ĆWICZENIE · [U] NOWA PRÓBA\n[B] WYPRÓBUJ BROŃ · [N] TWOJE SKINY',
+      );
+      this.el['forest-status'].style.whiteSpace = this.el['survival-kit'].style.whiteSpace =
+        'pre-line';
+    } else if (state.forest) {
+      const weather = forestWeather(state.forest.seed, state.time),
+        edge = forestBounds(state.forest.ring).maxX;
+      const defense = state.forest.defenses.reduce((n, d) => n + d.hp, 0),
+        max = state.forest.defenses.reduce((n, d) => n + d.maxHp, 0);
+      text(
+        'forest-status',
+        `${weather.daylight < 0.3 ? 'NOC' : 'DZIEŃ'} / ${weather.rain > 0.3 ? 'DESZCZ' : 'MGŁA'} · OBSZAR ${Math.round(edge * 2)} × ${Math.round(edge * 2)} m\nOBÓZ: ${Math.round(Math.hypot(p.x, p.z))} m · OBRONA ${Math.ceil(defense)}/${max} HP${edge - Math.max(Math.abs(p.x), Math.abs(p.z)) < 5 ? ' · KONIEC SZLAKU — PRZETRWAJ KOLEJNE FALE' : ''}`,
+      );
+      this.el['forest-status'].style.whiteSpace = 'pre-line';
+      text(
+        'survival-kit',
+        `[L] LATARKA ${p.flashlightUnlocked ? `${p.flashlight ? 'ON' : 'OFF'} ${Math.ceil((p.flashlightCharge || 0) / 1.2)}% · BATERIE ${p.spareBatteries || 0}` : 'DO KUPIENIA: B / ZAPASY'} · [H] APTECZKI ${p.equipment?.medkit || 0}\n[J] MOŁOTOW ${p.equipment?.molotov || 0} · [T] PUŁAPKI ${p.equipment?.trap || 0} · [O] LATARNIE ${p.equipment?.lantern || 0}\nDREWNO ${p.resources?.wood || 0} · ZŁOM ${p.resources?.scrap || 0} · CZĘŚCI ${p.resources?.parts || 0} · MED ${p.resources?.medicine || 0} · [K] WARSZTAT${p.nearCampfire && p.hp < p.maxHp ? `\nOGNISKO: ${p.regenerating ? '+4 HP/s' : `LECZENIE ZA ${Math.max(0, Math.ceil(5 - (state.time - p.lastDamage)))}s`}` : ''}`,
+      );
+      this.el['survival-kit'].style.whiteSpace = 'pre-line';
+      const contract = state.contract,
+        mark = state.pings?.at(-1);
+      if (contract)
+        this.el['forest-status'].textContent +=
+          `\n${contract.name}: ${contract.ready ? 'WRÓĆ DO TABLICY' : `${contract.progress}/${contract.goal}`}${contract.x !== undefined ? ` · ${Math.round(Math.hypot(contract.x - p.x, contract.z - p.z))} m` : ''}`;
+      if (mark)
+        this.el['forest-status'].textContent +=
+          `\nZNACZNIK DRUŻYNY: ${Math.round(Math.hypot(mark.x - p.x, mark.z - p.z))} m · M / MAPA`;
+    }
     text('connection', multiplayer ? 'CO-OP / CONNECTED' : 'SOLO / LOCAL');
-    text('round', String(Math.max(1, state.round)).padStart(2, '0'));
-    text('round-label', state.phase === 'prepare' ? 'PREPARE' : 'ROUND');
+    text('round', String(state.wave || Math.max(1, state.round)).padStart(2, '0'));
+    text(
+      'round-label',
+      state.phase === 'chapter'
+        ? 'TRANSFER'
+        : `${state.phase === 'prepare' ? 'PREPARE' : 'WAVE'} / ${WAVES_PER_CHAPTER}`,
+    );
+    this.el['chapter-transition'].classList.toggle('hidden', state.phase !== 'chapter');
+    if (state.phase === 'chapter') {
+      text('chapter-number', `CHAPTER ${String(chapter).padStart(2, '0')}`);
+      text('chapter-title', chapterInfo.name);
+      text('chapter-subtitle', chapterInfo.subtitle);
+      text('chapter-transfer', `TRANSFER IN ${Math.max(0, Math.ceil(state.countdown))}s`);
+      this.el['chapter-transition'].style.opacity = Math.min(1, Math.max(0, state.countdown / 1.2));
+    }
     text(
       'remaining',
-      state.phase === 'prepare'
-        ? `BREACH IN ${Math.max(0, Math.ceil(state.countdown))}s`
-        : `${state.remaining} HOSTILES`,
+      state.phase === 'chapter'
+        ? 'NOWY ROZDZIAŁ WYPRAWY'
+        : state.phase === 'prepare'
+          ? `BREACH IN ${Math.max(0, Math.ceil(state.countdown))}s`
+          : `${state.remaining} HOSTILES`,
     );
     text('points', p.points.toLocaleString());
+    this.el.hud.querySelector('.hud-currency').style.visibility = state.training ? 'hidden' : '';
+    if (state.training) {
+      text('round-label', state.training.finished ? 'WYNIK' : 'POZOSTAŁO');
+      text('round', String(Math.ceil(state.training.remaining)).padStart(2, '0'));
+      text('remaining', state.training.finished ? 'U / NOWA PRÓBA' : 'TRENING / 60 SEKUND');
+    }
     text('kills', `${p.kills} ELIMINATIONS`);
     text('health', Math.ceil(p.hp));
     text('max-health', `/ ${p.maxHp}`);
@@ -731,8 +1138,24 @@ export class UI {
                 ? 'BLUEPRINT READY / PRESS B'
                 : 'UNLOCK BLUEPRINT / FREE'
               : interaction.price
-                ? `${interaction.price.toLocaleString()} POINTS`
-                : 'HOLD TO INTERACT',
+                ? `${interaction.price.toLocaleString()} KREDYTÓW`
+                : interaction.type === 'defense'
+                  ? 'E / NAPRAW LUB WZMOCNIJ · 2 DREWNA'
+                  : interaction.type === 'workbench'
+                    ? 'E / OTWÓRZ WARSZTAT'
+                    : interaction.type === 'cache'
+                      ? 'E / ZBIERZ ZAPASY'
+                      : interaction.type === 'route'
+                        ? 'E / 3 DREWNA · 2 ZŁOMU'
+                        : interaction.type === 'contract'
+                          ? 'E / PRZYJMIJ WYPRAWĘ LUB ODBIERZ NAGRODĘ'
+                          : interaction.type === 'campUpgrade'
+                            ? Object.entries(
+                                campUpgradeCost(state.campLevels?.[interaction.id] || 0),
+                              )
+                                .map(([k, n]) => `${n} ${k}`)
+                                .join(' · ')
+                            : 'HOLD TO INTERACT',
       );
       this.el['revive-track'].style.display = interaction.type === 'revive' ? 'block' : 'none';
       this.el['revive-track'].firstElementChild.style.width =
@@ -747,11 +1170,22 @@ export class UI {
     this.el.notice.style.opacity = this.noticeTimer > 0 ? 1 : 0;
     this.el['round-announcement'].style.opacity = Math.min(1, Math.max(0, this.roundTimer));
     this.el['damage-vignette'].style.opacity = this.damage + (p.hp < 30 ? 0.2 : 0);
-    const boss = state.zombies.find((z) => z.type === 'boss');
+    const boss =
+      state.zombies.find((z) => z.finalBoss) || state.zombies.find((z) => z.type === 'boss');
     this.el['boss-bar'].classList.toggle('hidden', !boss);
     if (boss) {
       this.el['boss-bar'].querySelector('b').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
-      text('boss-phase', `PHASE ${boss.phase}`);
+      this.el['boss-bar'].querySelector('div > span').textContent = boss.finalBoss
+        ? 'BIG BOSS / WŁADCA LASU'
+        : 'THE HOLLOW';
+      text(
+        'boss-phase',
+        boss.finalBoss
+          ? boss.shielded
+            ? `TARCZA · OBSTAWA ${boss.guardsAlive || 0} · ETAP ${Math.max(1, boss.bossStage)}/3`
+            : `ODSŁONIĘTY · ETAP ${boss.bossStage}/3`
+          : `PHASE ${boss.phase}`,
+      );
     }
     this.el.scoreboard.classList.toggle('hidden', !scoreboard);
     if (scoreboard) {
@@ -788,10 +1222,18 @@ export class UI {
         : `Hold out for your squad. ${Math.ceil(p.bleed)}s / REVIVE ${Math.round((p.revive / 3) * 100)}%`,
     );
   }
-  gameover(state, p, multiplayer, isHost) {
+  gameover(state, p, multiplayer, isHost, skinReward = 0) {
     this.modal('over');
     this.el['end-round'].textContent = state.round;
     this.el['end-kills'].textContent = p.kills;
+    let reward = this.el['over-modal'].querySelector('#end-skin-reward');
+    if (!reward) {
+      reward = document.createElement('p');
+      reward.id = 'end-skin-reward';
+      reward.className = 'skin-reward';
+      this.el['over-modal'].querySelector('.end-stats').after(reward);
+    }
+    reward.textContent = `${state.clearedWaves || 0} UKOŃCZONE FALE · +${skinReward} PTS NA SKINY · PORTFEL ${this.skins.balance} PTS`;
     this.el['end-time'].textContent =
       `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(Math.floor(state.time % 60)).padStart(2, '0')}`;
     this.el.restart.disabled = multiplayer && !isHost;

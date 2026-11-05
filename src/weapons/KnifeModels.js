@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ModelBuilder } from './ModelBuilder.js';
 import { canonicalKnifeId } from '../../shared/Knives.js';
 import { createKnifeHand } from './KnifeHand.js';
+import { applyWeaponSkin } from './SkinMaterials.js';
 import {
   KnifeReference,
   profileMesh,
@@ -385,7 +386,7 @@ function stiletto(b, parent) {
   return { ref, holes: bladeHoles, pivot: ref.point(244, 177), length: 0.28 };
 }
 
-export function createKnifeModel(requestedId = 'karambit') {
+export function createKnifeModel(requestedId = 'karambit', skin = 'factory') {
   const id = canonicalKnifeId(requestedId),
     b = new ModelBuilder(`knife-${id}`, false);
   knifeMaterials(b);
@@ -396,7 +397,7 @@ export function createKnifeModel(requestedId = 'karambit') {
   body.position.copy(rig.position).negate();
 
   createKnifeHand(b);
-  return b.finish({
+  const model = b.finish({
     knifeVariant: id,
     sightHeight: 0,
     hip: [0.17, -0.155, -0.36],
@@ -411,4 +412,6 @@ export function createKnifeModel(requestedId = 'karambit') {
       length: data.length,
     },
   });
+  applyWeaponSkin(model, `knife:${id}`, skin);
+  return model;
 }

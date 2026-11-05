@@ -1,0 +1,105 @@
+export const NEW_INFECTED = {
+  brute: {
+    name: 'BRUTE',
+    health: 420,
+    speed: 0.95,
+    damage: 32,
+    radius: 0.56,
+    height: 2.45,
+    color: 0x928478,
+    cloth: 0x453833,
+    firstWave: 7,
+    emergence: 1.95,
+    note: 'A massive infected with oversized fists. Slow, powerful and difficult to stagger. Keep moving.',
+  },
+  spitter: {
+    name: 'ACID SPITTER',
+    health: 120,
+    speed: 1.4,
+    damage: 14,
+    radius: 0.36,
+    height: 1.92,
+    color: 0x9ca56f,
+    cloth: 0x4a5742,
+    firstWave: 5,
+    emergence: 1.5,
+    note: 'Swollen acid glands. Telegraphs a projectile that can be dodged; impacts leave a corrosive pool.',
+  },
+  screamer: {
+    name: 'SCREAMER',
+    health: 130,
+    speed: 1.55,
+    damage: 13,
+    radius: 0.35,
+    height: 1.95,
+    color: 0xa6a395,
+    cloth: 0x584552,
+    firstWave: 8,
+    emergence: 1.6,
+    note: 'Its charged scream enrages nearby infected for four seconds. Interrupt it before the scream completes.',
+  },
+  stalker: {
+    name: 'SHADOW STALKER',
+    health: 95,
+    speed: 2.7,
+    damage: 18,
+    radius: 0.32,
+    height: 1.74,
+    color: 0x777c91,
+    cloth: 0x292936,
+    firstWave: 9,
+    emergence: 1.15,
+    note: 'A hooded flanker with long claws. Briefly accelerates when closing in from the side.',
+  },
+  leaper: {
+    name: 'LEAPER',
+    health: 100,
+    speed: 2.2,
+    damage: 18,
+    radius: 0.34,
+    height: 1.72,
+    color: 0xa39573,
+    cloth: 0x514835,
+    firstWave: 6,
+    emergence: 1.2,
+    note: 'Crouches before a committed leap. Move sideways during the wind-up to avoid its landing strike.',
+  },
+  bloater: {
+    name: 'PLAGUE CARRIER',
+    health: 260,
+    speed: 0.85,
+    damage: 22,
+    radius: 0.49,
+    height: 2.08,
+    color: 0x929955,
+    cloth: 0x8c7941,
+    firstWave: 10,
+    emergence: 1.8,
+    note: 'Bloated carrier in a ruined containment suit. Its corpse releases a lingering toxic cloud.',
+  },
+  boneguard: {
+    name: 'BONEGUARD',
+    health: 320,
+    speed: 1.4,
+    damage: 26,
+    radius: 0.47,
+    height: 2.16,
+    color: 0xaaa28b,
+    cloth: 0x45463c,
+    firstWave: 12,
+    emergence: 1.7,
+    bodyArmor: 0.55,
+    note: 'Bone plates absorb body shots until its health falls below 40%. Aim for its exposed head.',
+  },
+};
+
+export function infectedForWave(round, roll) {
+  const pool = ['normal', 'normal', 'normal', 'normal'];
+  if (round >= 3) pool.push('runner', 'runner');
+  if (round >= 4) pool.push('crawler');
+  if (round >= 5) pool.push('armored');
+  if (round >= 6) pool.push('exploder');
+  for (const [type, definition] of Object.entries(NEW_INFECTED))
+    if (round >= definition.firstWave) pool.push(type, ...(round >= 16 ? [type] : []));
+  return pool[Math.min(pool.length - 1, Math.floor(roll * pool.length))];
+}

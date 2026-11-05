@@ -1,6 +1,23 @@
 import { clamp, random, WEAPONS } from './config.js';
 
 export const ACCURACY = {
+  m1911: { ads: 0.23, perShot: 0.004, max: 0.018, recovery: 0.045, delay: 0.12, aimTime: 0.16 },
+  p226: { ads: 0.22, perShot: 0.0027, max: 0.016, recovery: 0.047, delay: 0.1, aimTime: 0.14 },
+  cz75: { ads: 0.2, perShot: 0.0025, max: 0.015, recovery: 0.05, delay: 0.1, aimTime: 0.15 },
+  uzi: { ads: 0.28, perShot: 0.0019, max: 0.025, recovery: 0.055, delay: 0.1, aimTime: 0.14 },
+  vector: { ads: 0.24, perShot: 0.0012, max: 0.02, recovery: 0.06, delay: 0.09, aimTime: 0.16 },
+  benelli: { ads: 0.6, perShot: 0.008, max: 0.035, recovery: 0.055, delay: 0.12, aimTime: 0.24 },
+  r870: { ads: 0.6, perShot: 0.007, max: 0.025, recovery: 0.06, delay: 0.15, aimTime: 0.25 },
+  fal: { ads: 0.18, perShot: 0.004, max: 0.038, recovery: 0.035, delay: 0.16, aimTime: 0.27 },
+  g36: { ads: 0.2, perShot: 0.0018, max: 0.024, recovery: 0.044, delay: 0.12, aimTime: 0.19 },
+  axmc: { ads: 0.02, perShot: 0.019, max: 0.045, recovery: 0.06, delay: 0.3, aimTime: 0.38 },
+  glock17: { ads: 0.24, perShot: 0.0026, max: 0.014, recovery: 0.045, delay: 0.1, aimTime: 0.13 },
+  beretta92: { ads: 0.22, perShot: 0.0028, max: 0.015, recovery: 0.043, delay: 0.1, aimTime: 0.15 },
+  mp5: { ads: 0.25, perShot: 0.0016, max: 0.021, recovery: 0.055, delay: 0.1, aimTime: 0.15 },
+  p90: { ads: 0.3, perShot: 0.0009, max: 0.012, recovery: 0.06, delay: 0.08, aimTime: 0.14 },
+  scarh: { ads: 0.18, perShot: 0.0035, max: 0.033, recovery: 0.036, delay: 0.17, aimTime: 0.26 },
+  aug: { ads: 0.12, perShot: 0.0017, max: 0.02, recovery: 0.04, delay: 0.13, aimTime: 0.22 },
+  barrett: { ads: 0.018, perShot: 0.023, max: 0.05, recovery: 0.055, delay: 0.32, aimTime: 0.44 },
   vx9: { ads: 0.25, perShot: 0.003, max: 0.014, recovery: 0.04, delay: 0.1, aimTime: 0.14 },
   desertEagle: {
     ads: 0.48,
@@ -42,7 +59,10 @@ export function spreadFor(player, input, time) {
       (player.grounded ? 0 : 0.055) +
       recoveredBloom(inv, time) * (1 - aim * 0.4)) *
     (player.crouch && !player.sliding ? 0.72 : 1);
-  return { aim: cone, pellets: w.pellets > 1 ? 0.045 : 0 };
+  return {
+    aim: cone * (inv.handling ? 0.88 : 1) * (inv.optic ? 1 - aim * 0.12 : 1),
+    pellets: w.pellets > 1 ? 0.045 : 0,
+  };
 }
 export function recordShot(inv, time) {
   const a = ACCURACY[inv.id];

@@ -4,6 +4,7 @@ import { createWeaponModel, createKnifeModel } from '../weapons/WeaponModels.js'
 import { disposeWeaponModel } from '../weapons/ModelBuilder.js';
 import { createHumanoid, disposeHumanoid } from '../enemies/ZombieModel.js';
 import { animateHumanoid } from '../enemies/ZombieAnimation.js';
+import { applyWeaponSkin } from '../weapons/SkinMaterials.js';
 
 export class ModelPreview {
   constructor(canvas) {
@@ -11,6 +12,7 @@ export class ModelPreview {
     this.active = false;
     this.model = null;
     this.time = 0;
+    this.autoRotate = true;
   }
   initialize() {
     if (this.renderer) return;
@@ -47,7 +49,7 @@ export class ModelPreview {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(this.canvas.parentElement);
   }
-  show(kind, id) {
+  show(kind, id, skin = 'factory') {
     this.initialize();
     this.clear();
     this.kind = kind;
@@ -56,8 +58,8 @@ export class ModelPreview {
       kind === 'zombie'
         ? createHumanoid(id)
         : kind === 'knife'
-          ? createKnifeModel(id)
-          : createWeaponModel(id);
+          ? createKnifeModel(id, skin)
+          : createWeaponModel(id, false, skin);
     if (kind === 'zombie') animateHumanoid(this.model, { lastAttack: -100, hitAt: -100 }, 0, 0, 0);
     else
       for (const name of ['rightHand', 'supportHand']) {
@@ -73,7 +75,7 @@ export class ModelPreview {
     this.radius = Math.max(0.06, bounds.getSize(new THREE.Vector3()).length() / 2);
     this.model.root.position.sub(center);
     this.turntable.add(this.model.root);
-    this.turntable.rotation.set(0, kind === 'zombie' ? 0.2 : -0.6, 0);
+    this.turntable.rotation.set(0, kind === 'zombie' ? Math.PI + 0.2 : -0.6, 0);
     this.grid.position.y = bounds.min.y - center.y - 0.008;
     this.grid.scale.setScalar(this.radius * 1.25);
     this.active = true;
@@ -98,11 +100,15 @@ export class ModelPreview {
       this.camera.lookAt(0, 0, 0);
     }
   }
+  setSkin(finish) {
+    if (!this.model || this.kind === 'zombie') return;
+    applyWeaponSkin(this.model, this.kind === 'knife' ? `knife:${this.id}` : this.id, finish);
+  }
   update(dt) {
     if (!this.active || !this.model) return;
     this.time += dt;
     this.turntable.rotation.y = THREE.MathUtils.euclideanModulo(
-      this.turntable.rotation.y + dt * 0.45,
+      this.turntable.rotation.y + (this.autoRotate ? dt * 0.45 : 0),
       Math.PI * 2,
     );
     if (this.kind === 'zombie')

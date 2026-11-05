@@ -1,3 +1,6 @@
+import { chapterDefinition } from './Chapters.js';
+import { FOREST_WEAPON_PRICES } from './WeaponProgression.js';
+
 export const SECTORS = [
   { id: 'courtyard', name: 'SPAWN COURTYARD', x: -18, z: 10, tint: 0x9abb98, number: '01' },
   { id: 'security', name: 'SECURITY CHECKPOINT', x: 0, z: 10, tint: 0xddb66c, number: '02' },
@@ -28,10 +31,10 @@ export const STATIONS = [
     id: 'raven',
     type: 'weapon',
     weapon: 'raven',
-    name: 'RAVEN-47',
+    name: 'AK-47',
     x: -11.2,
     z: 17.5,
-    price: 1000,
+    price: 1800,
     sector: 'courtyard',
   },
   {
@@ -201,7 +204,79 @@ export const STATIONS = [
     sector: 'reactor',
   },
   { id: 'ammo2', type: 'ammo', name: 'AMMUNITION', x: 11, z: -15, price: 250, sector: 'reactor' },
+  {
+    id: 'glock17',
+    type: 'weapon',
+    weapon: 'glock17',
+    name: 'GLOCK 17',
+    x: -22,
+    z: 17.5,
+    price: 500,
+    sector: 'courtyard',
+  },
+  {
+    id: 'beretta92',
+    type: 'weapon',
+    weapon: 'beretta92',
+    name: 'BERETTA 92FS',
+    x: -16,
+    z: 17.5,
+    price: 650,
+    sector: 'courtyard',
+  },
+  {
+    id: 'mp5',
+    type: 'weapon',
+    weapon: 'mp5',
+    name: 'HK MP5',
+    x: 1,
+    z: 17.5,
+    price: 1400,
+    sector: 'security',
+  },
+  {
+    id: 'p90',
+    type: 'weapon',
+    weapon: 'p90',
+    name: 'FN P90',
+    x: 14,
+    z: 17.5,
+    price: 2400,
+    sector: 'lab',
+  },
+  {
+    id: 'scarh',
+    type: 'weapon',
+    weapon: 'scarh',
+    name: 'FN SCAR-H',
+    x: -5.5,
+    z: -17.5,
+    price: 3200,
+    sector: 'armory',
+  },
+  {
+    id: 'aug',
+    type: 'weapon',
+    weapon: 'aug',
+    name: 'STEYR AUG',
+    x: 12,
+    z: 4,
+    price: 2700,
+    sector: 'lab',
+  },
+  {
+    id: 'barrett',
+    type: 'weapon',
+    weapon: 'barrett',
+    name: 'BARRETT M82A1',
+    x: 18,
+    z: -3.5,
+    price: 6000,
+    sector: 'reactor',
+  },
 ];
+for (const s of STATIONS)
+  if (s.weapon && FOREST_WEAPON_PRICES[s.weapon]) s.price = FOREST_WEAPON_PRICES[s.weapon];
 export const COLLECTIBLES = [
   {
     id: 'log1',
@@ -276,10 +351,19 @@ export const STATION_BOXES = STATIONS.map((s) =>
     'metal',
   ),
 );
-export function obstacles(open = []) {
+export const chapterProps = (chapter = 1) => chapterDefinition(chapter).props || PROPS;
+export const chapterSectors = (chapter = 1) =>
+  SECTORS.map((s, i) => ({
+    ...s,
+    name: chapterDefinition(chapter).sectorNames?.[i] || s.name,
+    tint: chapter === 1 ? s.tint : chapterDefinition(chapter).tint,
+  }));
+export const chapterWalls = (chapter = 1) =>
+  chapterDefinition(chapter).outdoor ? WALLS.map((w) => ({ ...w, h: 3.4, y: 1.7 })) : WALLS;
+export function obstacles(open = [], chapter = 1) {
   return [
-    ...WALLS,
-    ...PROPS,
+    ...chapterWalls(chapter),
+    ...chapterProps(chapter),
     ...STATION_BOXES,
     ...DOORS.filter((d) => !open.includes(d.id)).map(doorBox),
   ];
@@ -303,7 +387,7 @@ export function accessibleSectors(open) {
   return SECTORS.filter((s) => found.has(s.id));
 }
 export function blocked(x, z, obs, radius = 0.38) {
-  return obs.some(
+  return (obs.query?.(x, z, radius) || obs).some(
     (b) =>
       b.y - b.h / 2 < 1 &&
       Math.abs(x - b.x) < b.w / 2 + radius &&

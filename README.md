@@ -1,181 +1,118 @@
-# DEADZONE: OUTBREAK
+# DEADZONE: OUTBREAK — THE LOST FOREST
 
-Grywalna gra FPS 3D w przeglądarce: przetrwanie kolejnych fal zombie w BLACKSITE–13, solo lub w prywatnej drużynie do czterech graczy. JavaScript ES Modules, Three.js, Rapier 3D, Vite, Node.js, Socket.IO i Web Audio. Bez Reacta, płatnych modeli, zewnętrznych tekstur ani usług wymagających kluczy API.
+Przeglądarkowy FPS 3D: obrona obozu ocalałych, eksploracja rosnącego lasu i fale zombie. Solo lub prywatny co-op do czterech graczy. Three.js, Rapier, Vite, Node.js, Socket.IO i Web Audio.
+
+[Opis ostatniej aktualizacji i trzech większych systemów](docs/survivor-update.md) · [Integracja leśnej mapy](docs/forest-integration.md) · [Przeciwnicy i rozdziały](docs/infected-and-chapters.md) · [Referencje broni](docs/weapon-references.md).
 
 ## Uruchomienie
 
-Wymagany Node.js **20.19+** lub **22.12+** oraz przeglądarka desktopowa z WebGL 2. Zalecana aktualna wersja Chrome lub Edge. Klawiatura i mysz są wymagane do gry.
-
-W folderze projektu:
+Node.js 20.19+ / 22.12+, desktopowa przeglądarka z WebGL 2, klawiatura i mysz.
 
 ```powershell
 npm.cmd install
 npm.cmd start
 ```
 
-Otwórz **http://localhost:5173**. `npm start` uruchamia frontend i serwer co-op. Ctrl+C zatrzymuje oba procesy. W PowerShell używaj `npm.cmd`, jeśli polityka wykonywania skryptów blokuje `npm.ps1`; nie trzeba zmieniać polityki systemowej. W innych powłokach można używać zwykłego `npm`.
+Otwórz **http://localhost:5173**. Polecenie uruchamia frontend i serwer co-op. Ctrl+C zatrzymuje oba. W PowerShell używaj `npm.cmd`, jeśli polityka systemowa blokuje `npm.ps1`.
 
-Osobne polecenia też są dostępne:
+Oddzielnie można uruchomić `npm.cmd run dev` i `npm.cmd run server`. Solo wymaga tylko frontendu. Po aktualizacji zrestartuj serwer Node i odśwież stronę; ustawienia, indeks i wybory skinów pozostają zapisane w przeglądarce.
 
-```powershell
-# Terminal 1: frontend; wystarczy do gry solo
-npm.cmd run dev
+## Obecna zawartość
 
-# Terminal 2: serwer dla co-op
-npm.cmd run server
-```
+- **27 broni palnych i 3 noże**: dotychczasowy arsenał oraz Colt M1911A1, SIG Sauer P226, CZ 75 B, IWI UZI PRO, KRISS Vector SMG, Benelli M4, Remington 870, FN FAL, HK G36C i Accuracy International AXMC. Własne modele, dźwięki, parametry i ruchome części. Zachowano ADS, odrzut, rozrzut, headshoty, przeładowanie i trzy sloty.
+- **1110 płatnych wykończeń**: na każdą broń i nóż przypada 8 rzadkich, 4 epickie, 2 mityczne i 4 specjalne skiny, ich 18 wariantów GOLD oraz samodzielny GOLD. Serie specjalne to Lustrzane srebro, Karmazynowa sieć (Crimson Web), Szmaragd i Głęboka czerń. Polskie nazwy i opisy, z przełączaniem na angielski w ustawieniach. Podgląd 3D i osobny zapis zakupów. Oryginał fabryczny pozostaje bezpłatny. Dłonie i szkło zachowują własne materiały; specjalne serie pokrywają również lufy i mechanizmy. Skin nie kupuje broni ani schematu.
+- **Karambit, Skeleton i Stiletto** z wcześniejszych referencji. Jedna dłoń podczas trzymania noża, rzeczywiste otwory w geometrii, dobycie, cięcie, oglądanie i otwieranie Stiletto. Ochrona kamery przed skokami myszy i przekręceniem widoku pozostała aktywna.
+- **13 wariantów zombie** korzysta z kanciastej podstawy odtworzonej z ostatniego obrazka: porwana koszula, poszarpane spodnie, otwarte usta i pomarańczowe oczy. Różnią się paletą, ubraniem, wielkością i zdolnościami. Śmierć korzysta z **11-bryłowego ragdolla Rapier** z grawitacją, połączeniami, impulsem trafienia i zderzeniami z terenem oraz przeszkodami.
+- **Rosnący las** z deterministycznego seeda. Chunki 24 m, ścieżki, drzewa, trawa, skały, chaty, biwaki, ruiny, wraki i skrytki. Wspólna geometria terenu i kolizji, nawigacja omijająca zabudowę i drzewa, odradzanie poza obozem i widocznym stożkiem kamery.
+- **Rozbudowany obóz**: palisada, cztery barykady, wieże, ognisko, namiot medyczny, radiostacja, stolarnia, magazyn, generator i zbiorniki wody. Barykady mają 300 HP, można je naprawić za 2 drewna i wzmocnić do 600 HP. Zniszczenie i odbudowa zmieniają rzeczywistą kolizję.
+- **Crafting** przy warsztacie: amunicja, apteczki, Mołotowy, pułapki, pancerz i modyfikacje aktualnej broni. Magazynek +25%, szybsze przeładowanie / mniejszy rozrzut, kalibracja ADS. Działa razem z wcześniejszym ulepszeniem za kredyty.
+- **Arena treningowa**: precyzja, tracking i refleks, próby po 60 sekund, wszystkie bronie bez opłat, pomiar celności i headshotów. Wyposażenie treningowe nie przechodzi do przetrwania.
+- **Kontrakty wypraw** z tablicy przy radiostacji: obrona obozu, odzyskanie skrzyni i zniszczenie gniazda. Wspólny postęp oraz nagrody dla drużyny.
+- **Wspólna rozbudowa obozu**: po trzy poziomy ambulatorium, warsztatu i generatora. Skuteczniejsze apteczki, tańszy crafting i impulsy obronne przy barykadach.
+- **Mapa taktyczna M**: obóz, dostępny las, pobliskie rozpoznane struktury, drużyna, cel wyprawy i wspólne znaczniki na 45 sekund. Nie ujawnia wszystkich ukrytych skrzyń.
+- **PL / EN w ustawieniach**, zapis wyboru języka, lokalizowany interfejs i tablice w świecie. Przyciemnione oświetlenie, cykl dobowy, deszcz, burze, wiatr, ognisko i latarka. W nocy zombie są o 12% szybsze.
 
-Tryb solo nie potrzebuje serwera multiplayer. Pierwsze wejście inicjalizuje lokalny moduł fizyki WASM. Kliknij **DEPLOY SOLO**; przeglądarka przechwyci kursor. Esc otwiera pauzę i zwalnia mysz.
+## Progresja i schematy
 
-## Co jest grywalne
+**15 broni podstawowych ma schemat od startu**. Schematy **12 specjalnych** znajdują się w ukrytych skrzyniach w lesie. Schemat jest odblokowywany drużynie, materiały otrzymuje zbierający. Sama broń nadal kosztuje kredyty. W lesie schematy nie wypadają z zombie i nie można kupić ich oddzielnie w sklepie. Barrett wymaga dotarcia do głębokiego lasu od fali 11, nadal kosztuje **6000** i zadaje bazowo **210 w ciało / 650 w głowę**.
 
-- Sześć sektorów BLACKSITE–13 z fizycznymi ścianami, przeszkodami, maszynami, zamkniętymi drzwiami, oświetleniem i proceduralnymi materiałami.
-- Ruch FPS: przyspieszenie, hamowanie, skakanie, kucanie, cichy chód, kolizje kapsuły Rapier, regulowana czułość i FOV, kołysanie broni, odrzut i reakcja na lądowanie.
-- Dziesięć oryginalnych broni: **VX-9**, **DESERT EAGLE**, **TEC-9**, **RAVEN-47**, **M4-SPECTRE**, **VORTEX-9**, **IRON-12**, **LYNX-50**, **SCOUT-9** i **PBS-1**. Różne obrażenia, szybkostrzelność, zapasy amunicji, przeładowanie, rozrzut, odrzut, zasięg i modele 3D. Trzy sloty ekwipunku.
-- Osobny slot noża pod **F** z trzema modelami odwzorowanymi z referencji: **Karambit**, **Skeleton Knife** i **Stiletto**. Wybrany model można zmienić w ustawieniach; poprzedni wybór Dagger automatycznie przechodzi na Stiletto. Nóż atakuje na bliskim dystansie po kliknięciu LPM.
-- Karambit ma łukowatą klingę i profilowany chwyt z pierścieniem; Skeleton — duży otwór przy nasadzie, pięć małych otworów w klindze, otwór na końcu i owinięty chwyt. Stiletto ma wąską klingę, metalowe okucia, drewniane okładziny oraz animację otwierania ostrza.
-- Noże mają fazowane ostrza, rzeczywiste otwory w rękojeściach, jedną dłoń z palcami zagiętymi wokół chwytu i animacje dobycia, cięcia oraz oglądania pod **V**. Dłoń i nóż poruszają się razem. Krótkie kliknięcia są zapamiętywane do następnego kroku gry; atak nożem nie zużywa amunicji broni palnej.
-- Każdy typ zombie ma model ze stawami łokciowymi i kolanowymi, ruchomą szczęką, twarzą oraz ubraniem lub pancerzem. Ruch wynika z prędkości przeciwnika; osobno animowane są ataki, trafienia, śmierć, pełzanie i przygotowanie ataku bossa.
-- Celność zależy od ruchu, skoku, kucania, czasu wejścia w celowanie i długości serii. Celownik pokazuje aktualny stożek rozrzutu. Rozrzut jest liczony w tej samej symulacji solo i na serwerze; śrut strzelby zachowuje własny stożek także przy celowaniu.
-- Kamera odrzuca skoki kursora po przechwyceniu myszy i zmianie okna. Limit patrzenia obejmuje też odrzut, co zapobiega przechodzeniu kamery ponad pion i odwracaniu widoku.
-- Hitscan z zasłanianiem przez geometrię, strefami głowy/tułowia/kończyn, premiami za headshot, pancerzem przeciwnika, markerami trafień, smugami i efektami uderzeń. Granaty z obrażeniami obszarowymi i zasłanianiem wybuchów przez ściany.
-- Animowane modele 3D: zwykły zombie, runner, armored, crawler, exploder oraz boss **THE EXPERIMENT**. Nawigacja po siatce, rozdzielanie przeciwników, ataki wręcz, reakcje na trafienie i upadek po śmierci.
-- Niekończące się rundy z narastającą trudnością, przerwą na zakupy oraz bossem co piątą rundę. Boss ma trzy fazy i zapowiadany atak obszarowy.
-- Punkty za eliminacje, headshoty, asysty i naprawę barykady. Zakup broni, amunicji, pancerza, drzwi i pięciu perków; mystery cache, ulepszanie broni oraz trzy ukryte dzienniki.
-- Zdrowie, pancerz, regeneracja po sześciu sekundach bez obrażeń, śmierć solo, stan powalenia w co-op, reanimacja przez przytrzymanie E, wykrwawienie, obserwowanie ocalałego gracza i odrodzenie po ukończeniu rundy.
-- Prywatne pokoje Socket.IO, kody zaproszeń, gotowość graczy, start przez hosta, wspólny stan rozgrywki, osobne punkty i ekwipunki, restart meczu, zmiana hosta po rozłączeniu i czyszczenie pustych pokojów.
-- Menu z animowanym tłem 3D, HUD, scoreboard, instrukcja, ustawienia, pauza i ekran końca meczu. Proceduralne dźwięki przestrzenne. Ustawienia Low/Medium/High/Ultra, bloom w High/Ultra i opcjonalna dynamiczna rozdzielczość.
-- **Field Index** w menu zapisuje odkryte typy zombie i zdobyte bronie w przeglądarce; nowe wpisy pojawiają się po spotkaniu przeciwnika lub zdobyciu broni.
-- Kliknięcie wpisu indeksu otwiera opis, statystyki i model 3D obracający się wokół własnej, wyśrodkowanej osi. Dostępne są bronie, przeciwnicy i trzy noże. Podgląd nie zmienia licznika odkrytych wpisów ani odblokowań sklepu.
-- **B** otwiera sklep z bronią, amunicją, pancerzem (shield), apteczkami, granatami, perkami i ulepszeniem aktualnej broni. **B**, **Esc** lub przycisk zamknięcia wracają do rozgrywki. W solo sklep zatrzymuje symulację; w co-op mecz trwa dalej.
-- Indeks broni i zagrożeń przewija się wewnątrz menu na komputerach oraz razem ze stroną na urządzeniach mobilnych. Zombie mają 5% szansy na upuszczenie podświetlonego schematu; podnieś go klawiszem **E**, by odblokować odpowiadającą mu broń za darmo.
+Sklep **B** zachowuje amunicję za 250, pancerz za 500, leczenie za 350, dwa granaty za 300 i ulepszenie broni za 2500 kredytów. Ceny części broni podniesiono, ponieważ rozszerzanie lasu nie wymaga kupowania drzwi. Ponowne wyposażenie posiadanej broni jest bezpłatne. Pełnych zapasów nie można opłacić ponownie.
 
-## Pierwsza rozgrywka
+Broń w B ma filtry: pistolety, PM, karabiny, snajperki i strzelby. **B → Zapasy** odblokowuje latarkę za **600 kredytów** z baterią na **120 sekund**. Zapasowa bateria kosztuje **200**, można nosić trzy; wymienia się automatycznie po rozładowaniu. **L** włącza mocny snop światła. Wyłączona latarka nie zużywa baterii. Zakup i zapasy pozostają po zmianie rozdziału.
 
-Startujesz z pistoletem, 500 punktami, 25 punktami pancerza i dwoma granatami. Pierwsza fala zaczyna się po siedmiu sekundach.
+**Latarnia ochronna** w zapasach kosztuje **350 kredytów**. **O** stawia ją przed graczem na ziemi. Odstrasza zwykłe zombie w promieniu **6 m** przez **180 sekund**. Bossy ignorują jej światło; przeciwnicy dystansowi nadal mogą atakować spoza kręgu. Maksymalnie dwie latarnie w plecaku i cztery aktywne w drużynie. Nieudane ustawienie nie zużywa przedmiotu.
 
-- Zwykła eliminacja: **100** punktów, headshot: **150**, asysta: **50**.
-- Stacje broni odblokowują schemat **za darmo** po interakcji **E**. Następnie kupujesz broń w sklepie **B**, np. TEC-9 za **950**, DESERT EAGLE za **1 400**, SCOUT-9 za **1 900** lub PBS-1 za **2 400** punktów. Schematy są indywidualne i obowiązują w aktualnym meczu. Ponowne wybranie posiadanej broni w sklepie tylko ją wyposaża, bez opłaty.
-- Jeśli nie chcesz szukać stacji ani czekać na drop, możesz kupić zablokowany schemat w sklepie za **70% ceny broni**. Odblokowanie schematu nie kupuje samej broni — jej pełną cenę płacisz osobno.
-- Drzwi do punktu kontrolnego: **750** punktów; tunel: **1 000**.
-- Amunicja w sklepie: **250** punktów — uzupełnia zapas aktualnej broni; magazynek nadal wymaga przeładowania. Stare stacje amunicji dodatkowo uzupełniają co najmniej dwa granaty.
-- Pancerz: **500** punktów, przywraca 100 punktów shield. Apteczka: **350**, przywraca pełne zdrowie. Dwa granaty: **300**, maksymalnie można nosić cztery. Zakupy pełnych zasobów są blokowane bez pobierania punktów.
-- Po każdej rundzie masz 12 sekund na zakupy; otrzymujesz 100 punktów i jeden granat, maksymalnie cztery.
-- Ulepszenie broni kosztuje **2 500** punktów, zwiększa obrażenia ×1,9 i pojemność magazynka ×1,5.
-- Naprawa barykady daje 25 punktów; ograniczona do czterech napraw na rundę i jednej co pięć sekund.
-- Przeciwnicy specjalni pojawiają się stopniowo od trzeciej rundy. Boss pojawia się w rundach 5, 10, 15 itd.
+Pasywne leczenie działa wyłącznie **do 5 m od ogniska**, po **5 sekundach bez obrażeń**, z szybkością **4 HP/s**. Poza ogniskiem używaj apteczek H lub kup apteczkę polową. Ambulatorium wzmacnia apteczki o 5 HP na poziom; nie przywraca regeneracji w lesie.
+
+**Skiny N** kupuje się za osobne punkty: **25 PTS za faktycznie ukończoną falę**, wypłata po śmierci lub wyjściu do menu. Ta sama fala z tego meczu nie jest rozliczana ponownie; trening nie przyznaje punktów. Rzadki skin kosztuje **100**, epicki **250**, mityczny **600**, specjalny **800**. Każdy legendarny **GOLD kosztuje 1000 PTS** (40 ukończonych fal oszczędzania); wersja GOLD konkretnego skina wymaga też posiadania jego podstawy. Portfel i zakupy zapisują się w tej przeglądarce. Wcześniej bezpłatnie wybrane skiny wymagają teraz zakupu.
+
+Startujesz z pistoletem, 500 kredytami, 25 pancerza, dwoma granatami i podstawowym wyposażeniem survivalowym. Pierwsza fala po 7 sekundach; za eliminację 100, headshot 150, asystę 50 kredytów. Za ukończenie fali dostajesz także drewno i medykamenty.
+
+Przerwy po ukończonych falach wynoszą **25, 30, 35, 40, 45, 50, potem 55 sekund**. Limit 55 sekund pozostaje także po zmianie rozdziału.
+
+**Ostatnia fala rozdziału (15, 30, 45...)** zaczyna się od jednego **BIG BOSSA / Władcy Lasu**, większego i wytrzymalszego od minibossów. Przywołuje trzy grupy obstawy. Dopóki trwa przywołanie lub żyje obstawa, boss jest chroniony (niebieskie oczy / tarcza w HUD). Po jej pokonaniu odsłania się. Kolejne grupy pojawiają się przy 65% i 30% HP; duży pojedynczy strzał nie omija etapu. Dopiero jego śmierć kończy falę i otwiera następny rozdział.
+
+Las rozszerza się przy falach **4, 7, 11, 16**, potem co pięć fal. Obszar rośnie od **72 × 72 m** do **408 × 408 m**. Co 15 ukończonych fal zaczyna się kolejny rozdział wyprawy; obóz, pozycje, seed, skrytki, otwarte chaty, bronie, schematy, materiały i skiny pozostają. Rozdział daje zapasy i 500 kredytów. Nazwy rozdziałów powtarzają się po trzecim, trudność rośnie dalej.
 
 ## Sterowanie
 
-| Klawisz              | Działanie                                   |
-| -------------------- | ------------------------------------------- |
-| W / A / S / D        | Ruch                                        |
-| Mysz                 | Rozglądanie                                 |
-| Lewy przycisk myszy  | Strzał; przytrzymanie prowadzi ogień        |
-| Prawy przycisk myszy | Celowanie                                   |
-| R                    | Przeładowanie                               |
-| Shift                | Cichy chód                                  |
-| Ctrl lub C           | Kucanie                                     |
-| Ctrl podczas biegu   | Ślizg z zachowaniem pędu                    |
-| Spacja               | Skok                                        |
-| E                    | Interakcja / zakup; przytrzymanie reanimuje |
-| F                    | Wyciągnięcie / schowanie noża               |
-| V                    | Oglądanie broni lub noża                    |
-| B                    | Sklep / zamknięcie sklepu                   |
-| Lewy przycisk myszy  | Atak nożem, gdy jest wyciągnięty            |
-| G                    | Granat                                      |
-| 1 / 2 / 3            | Zmiana broni                                |
-| Tab                  | Wyniki drużyny                              |
-| Esc                  | Pauza / zwolnienie kursora                  |
+| Klawisz       | Działanie                                                                  |
+| ------------- | -------------------------------------------------------------------------- |
+| WASD / mysz   | Ruch / rozglądanie                                                         |
+| LPM / PPM     | Strzał lub cięcie / ADS                                                    |
+| R             | Przeładowanie                                                              |
+| Shift         | Cichy chód                                                                 |
+| Ctrl / C      | Kucanie; podczas biegu ślizg                                               |
+| Spacja        | Skok                                                                       |
+| E             | Interakcja, skrytka, kontrakt, naprawa, rozbudowa; przytrzymanie reanimuje |
+| F / V         | Wyciągnij nóż / obejrzyj model                                             |
+| B / N         | Sklep / kolekcja i zakupy skinów                                           |
+| K / M         | Warsztat / mapa taktyczna                                                  |
+| L / H / J / T | Latarka / apteczka / Mołotow / pułapka                                     |
+| O             | Postaw kupioną latarnię ochronną                                           |
+| G / 1–3       | Granat / zmiana slotu broni                                                |
+| P / U         | W treningu: wybór ćwiczenia i broni / nowa próba                           |
+| Tab / Esc     | Wyniki / pauza i zwolnienie kursora                                        |
 
-W multiplayer menu pauzy **nie zatrzymuje meczu**. Reanimacja wymaga trzech sekund przy powalonym graczu. Czas wykrwawienia wynosi 30 sekund. Jeżeli wszyscy zostaną powaleni, mecz się kończy.
+W solo menu zatrzymują symulację. W co-op mecz nadal trwa. Reanimacja wymaga trzymania E przez 3 sekundy obok powalonego; wykrwawienie trwa 30 s. Wyeliminowani wracają po ukończeniu fali. Powalenie całej drużyny kończy mecz.
 
-## Co-op na dwóch klientach
+## Multiplayer i produkcja
 
-1. Uruchom `npm start`.
-2. Otwórz dwa okna przeglądarki na `http://localhost:5173`.
-3. W pierwszym wybierz **CO-OP OPERATIONS → CREATE PRIVATE LOBBY**.
-4. W drugim wpisz otrzymany sześcioznakowy kod i wybierz **JOIN**.
-5. Obaj gracze wybierają **READY UP**, host następnie **DEPLOY SQUAD**.
-6. Jeśli przeglądarka nie przechwyci automatycznie myszy drugiego gracza, kliknij **RESUME OPERATION** w jego oknie.
+W menu wybierz **CO-OP OPERATIONS → CREATE PRIVATE LOBBY** (lub odpowiedniki PL). Drugi gracz wpisuje kod pokoju i wybiera JOIN. Wszyscy zaznaczają READY UP, host uruchamia DEPLOY SQUAD. Jeśli kursor nie zostanie przechwycony, kliknij przycisk wznowienia.
 
-Na innych komputerach w tej samej sieci użyj adresu `Network` wyświetlanego przez Vite, np. `http://192.168.x.x:5173`. Zapora systemu musi pozwalać na połączenie z tym portem. Proxy Vite przekazuje Socket.IO do serwera, więc w tym układzie nie trzeba udostępniać klientom portu 3001.
-
-Dla osobnych domen frontendu i backendu ustaw `VITE_SERVER_URL` przed buildem i `ALLOWED_ORIGINS` na serwerze. Przykłady znajdują się w `.env.example`; Vite odczytuje `.env`, natomiast serwer używa zmiennych środowiskowych procesu. Kod pokoju nie zastępuje uwierzytelnienia konta.
-
-## Build produkcyjny
+W LAN użyj adresu Network wypisanego przez Vite. Proxy przekazuje Socket.IO na port 3001. Dla osobnych domen ustaw `VITE_SERVER_URL` przed buildem i `ALLOWED_ORIGINS` na serwerze; zobacz `.env.example`.
 
 ```powershell
 npm.cmd run build
 npm.cmd run server
 ```
 
-Serwer udostępnia zbudowany frontend i Socket.IO pod **http://localhost:3001**. Do publikacji internetowej użyj hostingu uruchamiającego Node.js oraz reverse proxy z HTTPS i obsługą WebSocket. Sam statyczny hosting pozwoli grać solo; co-op wymaga działającego procesu serwera.
-
-Domyślny port serwera to 3001 (`PORT`), interfejs to `0.0.0.0` (`HOST`). `/health` zwraca stan procesu i liczbę pokojów. Pokoje i mecze przechowywane są w pamięci procesu.
+Gotowy frontend i Socket.IO są pod **http://localhost:3001**. `PORT` / `HOST` zmieniają nasłuch, `/health` pokazuje stan. Co-op wymaga procesu Node i WebSocket; statyczny hosting obsłuży solo. Serwer jest właścicielem seeda, rozszerzeń, uszkodzeń, trafień, zakupów, craftingu, kontraktów, rozbudowy, markerów, zombie i fal.
 
 ## Weryfikacja
 
 ```powershell
 npm.cmd test
 npm.cmd run build
+npm.cmd run test:production  # własny serwer i dwóch klientów co-op
 
-# Test zbudowanej gry; uruchamia własny serwer na wolnym porcie:
-npm.cmd run test:production
-
-# Z działającym frontendem i serwerem:
-npm.cmd run test:browser
+# Przy uruchomionym frontendzie:
+npm.cmd run test:forest
+npm.cmd run test:survivor
+npm.cmd run test:skins
+npm.cmd run test:update
 npm.cmd run test:models
-npm.cmd run test:features
+npm.cmd run test:knife-reference
 ```
 
-Testy jednostkowe i integracyjne sprawdzają walidację wejścia, kolizje Rapier, skok i kucanie, trafienia i przesłanianie przez ściany, odrzucanie zbyt szybkich strzałów, przeładowanie, zakupy i punkty, drzwi, nawigację, rundy, bossów, reanimację, granaty, sześć broni, gotowość hosta, limity pokoi, synchronizację i rozłączenia. Integracja korzysta z prawdziwych klientów Socket.IO i serwera na losowym lokalnym porcie.
+Testy Node sprawdzają walkę, ceny, kamerę, kolizje, generację, zdolności, modele, ragdoll, crafting, obóz, kontrakty, schematy, trening i prawdziwych klientów Socket.IO. Test skinów renderuje wszystkie 1110 wykończeń, sprawdza cztery serie specjalne, ich materiały oraz polskie nazwy. Scenariusz update sprawdza kategorie, latarkę, baterie, szyję ragdolla, przerwy 25–55 sekund, rozliczenie skinów i GOLD. Pozostałe scenariusze sprawdzają język, bronie, trening, mapę i współpracę.
 
-Test przeglądarkowy używa Playwright i zainstalowanego Microsoft Edge, bez pobierania osobnej przeglądarki. Obejmuje menu, ustawienia, instrukcję, pointer lock, klawiaturę i mysz, strzelanie, przeładowanie, zakup drzwi, pauzę, śmierć i restart. Uruchamia też dwóch niezależnych klientów co-op, sprawdza wspólny stan i ruch, rozłączenie oraz brak błędów konsoli. Zrzuty zapisuje w `test-results/`. Zmienna `TEST_BROWSER=chrome` wybiera zainstalowanego Chrome; `TEST_URL` zmienia adres aplikacji.
+Playwright używa zainstalowanego Edge; `TEST_BROWSER=chrome` wybiera Chrome, `TEST_URL` zmienia frontend. Zrzuty trafiają do `test-results/`. Debug `window.__DEADZONE__` istnieje wyłącznie w Vite DEV. Formatowanie: `npm.cmd run format`.
 
-Wyłącznie w trybie developerskim `window.__DEADZONE__` pozwala testom przygotować deterministyczny scenariusz walki. Produkcyjny build nie wystawia tego obiektu. Weryfikacja przez LAN, Internet i testy obciążenia na czterech fizycznych komputerach pozostają osobnymi zadaniami wdrożeniowymi.
+## Granice wersji
 
-## Architektura
+Modele są autorską, proceduralną rekonstrukcją referencji, nie oryginalnymi plikami z obrazków. Nie dodano atrap łuku i toporka. Woda jest płytka; wieże stanowią otoczenie, a naprawiać można cztery barykady. Smugi światła są efektem warstw, nie pełną wolumetrią.
 
-```text
-shared/
-  config.js             parametry broni, przeciwników, perków
-  map.js                wspólna geometria kolizji, sektory i interakcje
-  Physics.js            Rapier, kapsuły graczy i kolizje
-  Navigation.js         pola odległości BFS dla nawigacji zombie
-  Simulation.js         walka, AI, fale, zdrowie, ekonomia i interakcje
-src/
-  core/                 inicjalizacja, stały krok symulacji, wejście
-  rendering/            Three.js, materiały, światło, bloom, efekty
-  world/                proceduralna geometria BLACKSITE–13
-  weapons/              modele i animacje broni z pierwszej osoby
-  enemies/              modele, animacje, ponowne użycie przeciwników
-  audio/                synteza dźwięku i przestrzenne źródła
-  multiplayer/          połączenie i komunikaty Socket.IO
-  ui/                   menu, lobby, HUD i ustawienia
-server/
-  index.js              HTTP, pokoje, limity zdarzeń, pętla serwera
-  GameRoom.js           gracze, host, gotowość, cykl meczu
-scripts/dev.js          jednoczesne uruchamianie frontendu i backendu
-tests/                  testy symulacji, sieci i przeglądarki
-```
+Pamięć jest ograniczona: do 289 chunków danych, 25 załadowanych chunków renderera, 40 żywych zombie i 28 zwłok. Wydajność 60 FPS wymaga pomiarów na docelowych komputerach; na słabszych wybierz Low / Medium.
 
-Solo i multiplayer wykorzystują ten sam moduł symulacji. Serwer pracuje w kroku **60 Hz**, wysyła snapshoty **20 Hz** i jest właścicielem pozycji, trafień, zdrowia, punktów, ekwipunku, zakupów, zombie i rund. Klient przesyła przyciski, kierunek patrzenia i akcje; nie przesyła wiążącej wartości obrażeń ani punktów. Ruch lokalny jest przewidywany z Rapier i uzgadniany z potwierdzeniami serwera; zombie są interpolowane z buforem około 100 ms.
-
-Optymalizacje obejmują instancjonowanie podłogi, scalanie statycznej geometrii według materiału, bufory nawigacji, pule efektów i modeli zombie, ograniczenie liczby jednoczesnych zombie do 40 i jakości cieni/rozdzielczości.
-
-## Zakres i ograniczenia tej wersji
-
-Grywalny zakres fazy 1 jest zaimplementowany, wraz z systemami walki, progresji, co-op i bossem z kolejnych faz. Jest to samodzielna, proceduralna gra; modele i animacje są stylizowane, dźwięki syntetyczne, a sektory tworzą kompaktową mapę na jednym poziomie. Barykady mają ograniczaną akcję naprawy i nagrodę; nie ma systemu fizycznego odrywania desek. Nie zastosowano płatnych ani zewnętrznych assetów.
-
-Nie ma zapisu meczu, dobierania losowych graczy, kont, ponownego dołączenia do trwającego meczu ani kompensacji opóźnienia przez cofanie czasu trafień. Rozłączenie usuwa gracza z meczu. Serwer waliduje akcje i ogranicza ich tempo; nie jest to kompletny system przeciwdziałania oszustwom. Celem wydajności jest 60 FPS, ale nie zostało to potwierdzone pomiarami na reprezentatywnych komputerach graczy. Na słabszym sprzęcie wybierz Medium lub Low.
-
-Rapier może wypisać ostrzeżenie o przestarzałej sygnaturze inicjalizacji wewnątrz pakietu WASM. Jego publiczne API nadal przyjmuje `init()` bez argumentów. Build może zgłosić rozmiar pakietu fizyki przekraczający 500 kB — to lokalny moduł WASM, nie brakujący zasób.
-
-## Dokumentacja bibliotek
-
-- [Three.js — WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer)
-- [Rapier — character controller](https://rapier.rs/docs/user_guides/javascript/character_controller/)
-- [Socket.IO — dokumentacja](https://socket.io/docs/v4/)
-
-Formatowanie kodu: `npm run format`.
+Nie ma zapisu meczu na dysku, kont, matchmakingu, ponownego dołączenia do rozpoczętej sesji ani cofania czasu trafień. Świat trwa w pamięci meczu; ustawienia, język, indeks i skiny w localStorage. Dźwięki broni są lokalnie dołączone: [autorzy i licencje](public/audio/CREDITS.md).

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { terrainHeight } from '../../shared/Forest.js';
 
 export class Effects {
   constructor(scene) {
@@ -7,6 +8,7 @@ export class Effects {
     this.tracers = [];
     this.grenades = [];
     this.rings = [];
+    this.hazardVisuals = new Map();
     this.cursor = 0;
     const geo = new THREE.SphereGeometry(1, 5, 4);
     for (let i = 0; i < 160; i++) {
@@ -69,13 +71,24 @@ export class Effects {
   }
   grenade(e, time) {
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 8, 6),
-      new THREE.MeshStandardMaterial({ color: 0x45543c }),
+      e.type === 'molotov'
+        ? new THREE.CylinderGeometry(0.045, 0.065, 0.25, 8)
+        : new THREE.SphereGeometry(0.09, 8, 6),
+      new THREE.MeshStandardMaterial({ color: e.type === 'molotov' ? 0x6d4e25 : 0x45543c }),
     );
     this.scene.add(mesh);
-    this.grenades.push({ mesh, origin: e.origin, x: e.x, z: e.z, start: time, end: time + 1.6 });
+    this.grenades.push({
+      mesh,
+      origin: e.origin,
+      x: e.x,
+      z: e.z,
+      start: time,
+      end: time + (e.duration || 1.6),
+    });
   }
   reset() {
+    for (const visual of this.hazardVisuals.values()) this.disposeHazard(visual);
+    this.hazardVisuals.clear();
     for (const p of this.pool) {
       p.life = 0;
       p.mesh.visible = false;
@@ -93,7 +106,95 @@ export class Effects {
     this.rings = [];
     this.grenades = [];
   }
-  update(dt, time) {
+  disposeHazard(visual) {
+    visual.group.removeFromParent();
+    const geometries = new Set(),
+      materials = new Set();
+    visual.group.traverse((o) => {
+      if (o.geometry) geometries.add(o.geometry);
+      if (o.material) materials.add(o.material);
+    });
+    for (const g of geometries) g.dispose();
+    for (const m of materials) m.dispose();
+  }
+  syncHazards(state, dt) {
+    const active = new Set();
+    for (const item of [...(state.projectiles || []), ...(state.hazards || [])]) {
+      active.add(item.id);
+      let visual = this.hazardVisuals.get(item.id);
+      if (!visual) {
+        const group = new THREE.Group(),
+          projectile = item.vx !== undefined;
+        const material = new THREE.MeshStandardMaterial({
+          color: item.type === 'fire' ? 0xffb34b : 0x9db452,
+          emissive: item.type === 'fire' ? 0xcc4d09 : 0x405e17,
+          emissiveIntensity: 0.7,
+          roughness: 0.3,
+          transparent: true,
+          opacity: projectile ? 0.95 : 0.4,
+          depthWrite: false,
+        });
+        if (projectile) group.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 9, 7), material));
+        else {
+          const pool = new THREE.Mesh(new THREE.CircleGeometry(item.radius, 28), material);
+          pool.rotation.x = -Math.PI / 2;
+          pool.position.y = 0.033;
+          group.add(pool);
+          if (item.type === 'fire')
+            for (let i = 0; i < 12; i++) {
+              const flame = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.8, 5), material);
+              flame.position.set(
+                Math.sin(i * 2.4) * item.radius * 0.7,
+                0.4,
+                Math.cos(i * 2.4) * item.radius * 0.7,
+              );
+              group.add(flame);
+            }
+          if (item.type === 'gas')
+            for (let i = 0; i < 3; i++) {
+              const cloud = new THREE.Mesh(
+                new THREE.SphereGeometry(item.radius * 0.55, 10, 7),
+                material,
+              );
+              cloud.position.set(
+                Math.sin(i * 2.4) * item.radius * 0.3,
+                0.45 + i * 0.15,
+                Math.cos(i * 2.4) * item.radius * 0.3,
+              );
+              cloud.scale.y = 0.65;
+              group.add(cloud);
+            }
+        }
+        group.position.set(
+          item.x,
+          (state.forest ? terrainHeight(state.forest.seed, item.x, item.z) : 0) +
+            (projectile ? item.y : 0),
+          item.z,
+        );
+        this.scene.add(group);
+        visual = { group, material, projectile };
+        this.hazardVisuals.set(item.id, visual);
+      }
+      visual.group.position.x = THREE.MathUtils.damp(visual.group.position.x, item.x, 30, dt);
+      visual.group.position.z = THREE.MathUtils.damp(visual.group.position.z, item.z, 30, dt);
+      if (!visual.projectile) {
+        visual.material.opacity =
+          (item.type === 'gas' ? 0.22 : 0.48) * Math.min(1, Math.max(0, item.end - state.time));
+        visual.group.rotation.y = Math.sin(state.time + item.start) * 0.08;
+        if (item.type === 'fire')
+          visual.group.children.forEach((mesh, i) => {
+            if (i) mesh.scale.y = 0.75 + Math.sin(state.time * 11 + i) * 0.3;
+          });
+      }
+    }
+    for (const [id, visual] of this.hazardVisuals)
+      if (!active.has(id)) {
+        this.disposeHazard(visual);
+        this.hazardVisuals.delete(id);
+      }
+  }
+  update(dt, time, state = null) {
+    if (state) this.syncHazards(state, dt);
     for (const p of this.pool) {
       if (p.life <= 0) continue;
       p.life -= dt;
@@ -122,7 +223,7 @@ export class Effects {
     }
     for (let i = this.grenades.length - 1; i >= 0; i--) {
       const g = this.grenades[i],
-        t = Math.min(1, (time - g.start) / 1.6);
+        t = Math.min(1, ((state?.time ?? time) - g.start) / (g.end - g.start));
       g.mesh.position.set(
         THREE.MathUtils.lerp(g.origin.x, g.x, t),
         Math.max(0.1, g.origin.y * (1 - t) + Math.sin(t * Math.PI) * 2.3),

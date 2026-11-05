@@ -172,6 +172,8 @@ try {
       p.vz = 0;
       g.input.pitch = type === 'crawler' ? -0.16 : 0;
       const z = g.sim.spawnZombie(type);
+      z.spawnAt = g.sim.time - 3;
+      z.emergeEnd = g.sim.time - 1;
       z.x = -18;
       z.z = 12;
       z.yaw = Math.PI;
@@ -194,7 +196,7 @@ try {
     );
     assert.ok(Math.abs(attacking - resting) > 0.3, `${type} has no attack animation`);
     await page.evaluate(() => window.__DEADZONE__.sim.zombies.clear());
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(800);
     assert.ok(
       await page.evaluate(
         () => Math.abs(window.__DEADZONE__.zombies.corpses[0].model.root.rotation.x) > 0.5,

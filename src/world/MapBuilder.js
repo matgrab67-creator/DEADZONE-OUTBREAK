@@ -1,15 +1,21 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeMaterials, labelTexture } from '../rendering/Materials.js';
-import { SECTORS, WALLS, PROPS, DOORS, STATIONS, COLLECTIBLES, doorBox } from '../../shared/map.js';
+import { DOORS, STATIONS, COLLECTIBLES, doorBox } from '../../shared/map.js';
 import { random } from '../../shared/config.js';
+import { chapterDefinition } from '../../shared/Chapters.js';
+import { chapterProps, chapterWalls, chapterSectors } from '../../shared/map.js';
 
 export class MapBuilder {
-  constructor(scene) {
+  constructor(scene, chapter = 1) {
     this.scene = scene;
+    this.chapter = chapter;
+    this.layout = chapterDefinition(chapter);
     this.group = new THREE.Group();
     scene.add(this.group);
     this.mat = makeMaterials();
+    for (const [key, color] of Object.entries(this.layout.palette))
+      this.mat[key].color.setHex(color);
     this.batches = new Map();
     this.doors = new Map();
     this.lights = [];
@@ -79,15 +85,16 @@ export class MapBuilder {
       }
     tiles.receiveShadow = true;
     this.group.add(tiles);
-    for (const wall of WALLS) {
+    for (const wall of chapterWalls(this.chapter)) {
       this.box(wall.x, wall.y, wall.z, wall.w, wall.h, wall.d, m.wall);
       if (wall.h > 4) {
         this.box(wall.x, 0.35, wall.z, wall.w + 0.03, 0.7, wall.d + 0.03, m.dark);
         this.box(wall.x, 2.9, wall.z, wall.w + 0.04, 0.09, wall.d + 0.04, m.amber);
       }
     }
-    for (const s of SECTORS) {
-      if (s.id !== 'courtyard') this.box(s.x, 5.95, s.z, 17.6, 0.18, 19.6, m.dark);
+    for (const s of chapterSectors(this.chapter)) {
+      if (s.id !== 'courtyard' && !this.layout.outdoor)
+        this.box(s.x, 5.95, s.z, 17.6, 0.18, 19.6, m.dark);
       for (const dx of [-7.5, 7.5]) {
         for (const dz of [-8, 0, 8]) this.box(s.x + dx, 2.8, s.z + dz, 0.32, 5.6, 0.38, m.steel);
         this.cylinder(s.x + dx, 4.8, s.z, 0.12, 19, m.steel, [Math.PI / 2, 0, 0]);
@@ -101,7 +108,7 @@ export class MapBuilder {
       this.lamp(s.x + 4, 4.4, s.z + 5, s.tint);
       this.sign(
         `${s.number} / ${s.name}`,
-        'BLACKSITE–13   //   RESTRICTED ACCESS',
+        `${this.layout.name}   //   RESTRICTED ACCESS`,
         s.x,
         3.6,
         s.z - 9.68,
@@ -145,7 +152,7 @@ export class MapBuilder {
       this.lights.push({ light: alarm, base: 5, seed: s.x * 3, alarm: true });
       this.cylinder(s.x - 7, 2.8, s.z - 8, 0.12, 0.25, m.redGlow);
     }
-    for (const p of PROPS) {
+    for (const p of chapterProps(this.chapter)) {
       const mat = m[p.kind] || m.steel;
       if (p.kind === 'reactor') {
         this.cylinder(p.x, 1.7, p.z, 1.35, 3.4, m.dark);
@@ -323,15 +330,7 @@ export class MapBuilder {
       this.collectibles.set(c.id, mesh);
     }
     // Courtyard floodlight, fencing, overhead cables and a damaged containment warning.
-    this.sign(
-      'BLACKSITE–13',
-      'DEPARTMENT OF ADVANCED BIOLOGICAL RESEARCH',
-      -18,
-      4.55,
-      0.29,
-      8,
-      1.15,
-    );
+    this.sign(this.layout.name, this.layout.subtitle, -18, 4.55, 0.29, 8, 1.15);
     this.sign(
       'NO ONE LEAVES',
       'QUARANTINE PROTOCOL ACTIVE',
@@ -385,7 +384,7 @@ export class MapBuilder {
     this.dust = new THREE.Points(
       dust,
       new THREE.PointsMaterial({
-        color: 0xa4b7a4,
+        color: this.layout.outdoor ? 0xc29c7c : this.chapter % 3 === 0 ? 0xa5d2ea : 0xa4b7a4,
         size: 0.025,
         transparent: true,
         opacity: 0.28,
@@ -393,6 +392,34 @@ export class MapBuilder {
       }),
     );
     this.scene.add(this.dust);
+  }
+  dispose() {
+    const geometries = new Set(),
+      materials = new Set(Object.values(this.mat)),
+      textures = new Set();
+    this.group.traverse((o) => {
+      if (o.geometry) geometries.add(o.geometry);
+      if (o.material)
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) materials.add(m);
+    });
+    geometries.add(this.blueprintGeometry);
+    geometries.add(this.blueprintRingGeometry);
+    materials.add(this.blueprintMaterial);
+    materials.add(this.blueprintRingMaterial);
+    if (this.dust) {
+      geometries.add(this.dust.geometry);
+      materials.add(this.dust.material);
+      this.dust.removeFromParent();
+    }
+    for (const m of materials) {
+      if (m.map) textures.add(m.map);
+      if (m.bumpMap) textures.add(m.bumpMap);
+      m.dispose();
+    }
+    for (const g of geometries) g.dispose();
+    for (const t of textures) t.dispose();
+    for (const { light } of this.lights) light.removeFromParent();
+    this.group.removeFromParent();
   }
   update(time, dt, state) {
     for (const [id, door] of this.doors) {

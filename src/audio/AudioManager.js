@@ -1,3 +1,6 @@
+import { WeaponAudio } from './WeaponAudio.js';
+import { forestWeather, pathDistance } from '../../shared/Forest.js';
+
 export class AudioManager {
   constructor(settings) {
     this.settings = settings;
@@ -13,17 +16,38 @@ export class AudioManager {
       this.context = new C();
       this.master = this.context.createGain();
       this.master.gain.value = this.settings.volume;
-      this.master.connect(this.context.destination);
+      this.compressor = this.context.createDynamicsCompressor();
+      this.compressor.threshold.value = -9;
+      this.compressor.knee.value = 12;
+      this.compressor.ratio.value = 4;
+      this.compressor.attack.value = 0.002;
+      this.compressor.release.value = 0.16;
+      this.master.connect(this.compressor).connect(this.context.destination);
+      this.weaponAudio = new WeaponAudio(this.context, this.master);
+      this.loading = this.weaponAudio.load();
       this.noise = this.context.createBuffer(1, this.context.sampleRate, this.context.sampleRate);
       const data = this.noise.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-      this.ambience = this.context.createOscillator();
-      this.ambience.type = 'sine';
-      this.ambience.frequency.value = 48;
-      const gain = this.context.createGain();
-      gain.gain.value = 0.035;
-      this.ambience.connect(gain).connect(this.master);
+      this.ambience = this.context.createBufferSource();
+      this.ambience.buffer = this.noise;
+      this.ambience.loop = true;
+      const filter = this.context.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 220;
+      this.windGain = this.context.createGain();
+      this.windGain.gain.value = 0.06;
+      this.ambience.connect(filter).connect(this.windGain).connect(this.master);
       this.ambience.start();
+      const rain = this.context.createBufferSource();
+      rain.buffer = this.noise;
+      rain.loop = true;
+      const rainFilter = this.context.createBiquadFilter();
+      rainFilter.type = 'highpass';
+      rainFilter.frequency.value = 1700;
+      this.rainGain = this.context.createGain();
+      this.rainGain.gain.value = 0;
+      rain.connect(rainFilter).connect(this.rainGain).connect(this.master);
+      rain.start();
     }
     if (this.context.state === 'suspended') await this.context.resume();
   }
@@ -79,6 +103,7 @@ export class AudioManager {
     source.stop(c.currentTime + duration);
   }
   shoot(id, position) {
+    if (this.weaponAudio?.shoot(id, position)) return;
     const heavy = id === 'iron' || id === 'lynx' || id === 'scout' || id === 'desertEagle',
       suppressed = id === 'spectre' || id === 'pbs1';
     this.sound({
@@ -99,17 +124,29 @@ export class AudioManager {
   }
   event(e, local) {
     const position = e.player === local ? null : e.origin;
+    if (e.type === 'spawn')
+      this.sound({ noise: true, duration: 0.35, volume: 0.08, filter: 550, position: e });
+    if (e.type === 'scream')
+      this.sound({
+        frequency: 310,
+        end: 730,
+        duration: 0.75,
+        volume: 0.13,
+        type: 'sawtooth',
+        filter: 1200,
+        position: e,
+      });
+    if (e.type === 'spit' || e.type === 'acidImpact')
+      this.sound({ noise: true, duration: 0.22, volume: 0.1, filter: 2100, position: e });
+    if (e.type === 'kill' || e.type === 'landing')
+      this.sound({ noise: true, duration: 0.16, volume: 0.1, filter: 330, position: e });
     if (e.type === 'shot') this.shoot(e.weapon, position);
     else if (e.type === 'reload') {
       if (e.player === local) {
-        this.sound({ noise: true, duration: 0.13, volume: 0.13, filter: 1600 });
-        setTimeout(
-          () =>
-            this.sound({ frequency: 420, duration: 0.07, volume: 0.09, type: 'square', end: 120 }),
-          e.duration * 700,
-        );
+        this.weaponAudio?.reload(e.weapon, e.duration);
       }
-    } else if (e.type === 'empty' && e.player === local)
+    } else if (e.type === 'weapon' && e.player === local) this.weaponAudio?.cancelReload();
+    else if (e.type === 'empty' && e.player === local)
       this.sound({ frequency: 240, duration: 0.03, type: 'square', volume: 0.09 });
     else if (e.type === 'knife' && e.player === local) {
       this.sound({ noise: true, duration: 0.16, volume: 0.1, filter: 1800 });
@@ -149,7 +186,7 @@ export class AudioManager {
         filter: 900,
       });
   }
-  update(p, zombies, time) {
+  update(p, zombies, time, forest = null) {
     if (!this.context) return;
     const l = this.context.listener;
     for (const [axis, value] of [
@@ -168,7 +205,44 @@ export class AudioManager {
       time - this.lastStep > (p.crouch ? 0.65 : 0.43)
     ) {
       this.lastStep = time;
-      this.sound({ noise: true, duration: 0.055, volume: p.crouch ? 0.015 : 0.055, filter: 450 });
+      this.sound({
+        noise: true,
+        duration: forest && pathDistance(p.x, p.z) > 3 ? 0.09 : 0.055,
+        volume: p.crouch ? 0.015 : 0.055,
+        filter: forest && pathDistance(p.x, p.z) > 3 ? 850 : 450,
+      });
+    }
+    if (forest) {
+      const weather = forestWeather(forest.seed, time);
+      this.windGain?.gain.setTargetAtTime(
+        0.035 + weather.wind * 0.045,
+        this.context.currentTime,
+        0.8,
+      );
+      this.rainGain?.gain.setTargetAtTime(weather.rain * 0.07, this.context.currentTime, 0.5);
+      if (weather.thunder && time - (this.lastThunder ?? -100) > 10) {
+        this.lastThunder = time;
+        this.sound({ noise: true, duration: 2.2, volume: 0.18, filter: 170 });
+      }
+      if (time - (this.lastBird ?? 0) > 13 && weather.daylight > 0.4 && weather.rain < 0.2) {
+        this.lastBird = time;
+        const position = { x: p.x + 12, y: 5, z: p.z - 8 };
+        this.sound({ frequency: 1900, end: 2900, duration: 0.14, volume: 0.025, position });
+        setTimeout(
+          () => this.sound({ frequency: 2700, end: 1700, duration: 0.18, volume: 0.018, position }),
+          180,
+        );
+      }
+      if (Math.hypot(p.x + 6, p.z - 3) < 12 && time - (this.lastCrackle ?? 0) > 1) {
+        this.lastCrackle = time;
+        this.sound({
+          noise: true,
+          duration: 0.14,
+          volume: 0.025,
+          filter: 1600,
+          position: { x: -6, y: 0.4, z: 3 },
+        });
+      }
     }
     if (zombies.length && time - this.lastGroan > 3.5) {
       this.lastGroan = time;
@@ -185,6 +259,7 @@ export class AudioManager {
     }
   }
   stop() {
+    this.weaponAudio?.cancelReload();
     if (this.context?.state === 'running') this.context.suspend();
   }
 }

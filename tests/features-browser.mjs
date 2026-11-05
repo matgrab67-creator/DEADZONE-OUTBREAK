@@ -1,5 +1,6 @@
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { WEAPONS } from '../shared/config.js';
 import { mkdir } from 'node:fs/promises';
 
 await mkdir('test-results', { recursive: true });
@@ -15,12 +16,13 @@ try {
   page.on('console', (e) => {
     if (e.type() === 'error') errors.push(e.text());
   });
+  await page.addInitScript(()=>localStorage.setItem('deadzone-settings',JSON.stringify({language:'en'})));
   await page.goto(process.env.TEST_URL || 'http://127.0.0.1:5173');
   await page.locator('#menu:not(.hidden)').waitFor({ timeout: 60000 });
   await page.locator('#open-index').click();
   for (const [kind, id, name] of [
     ['weapon', 'vx9', 'VX-9'],
-    ['zombie', 'boss', 'THE EXPERIMENT'],
+    ['zombie', 'boss', 'THE HOLLOW'],
     ['knife', 'stiletto', 'STILETTO'],
   ]) {
     await page.locator(`[data-profile="${kind}:${id}"]`).click();
@@ -86,71 +88,18 @@ try {
   await page.locator('#shop-modal:not(.hidden)').waitFor();
   assert.equal(await page.evaluate(() => document.pointerLockElement), null);
   assert.ok(await page.locator('[data-buy="weapon:raven"]').isDisabled());
-  assert.match(await page.locator('[data-item="weapon:raven"]').innerText(), /BLUEPRINT LOCKED/);
-  const pbsCard = page.locator('[data-item="weapon:pbs1"]');
-  await page.evaluate(() => {
-    window.__DEADZONE__.sim.players.get('solo').points = 1680;
-  });
-  await page.waitForTimeout(60);
-  assert.equal(await page.locator('[data-buy="weapon:pbs1"]').innerText(), 'BUY BLUEPRINT');
-  assert.match(await pbsCard.innerText(), /1,?680 PTS \/ BLUEPRINT/);
+  await page.evaluate(()=>{window.__DEADZONE__.sim.players.get('solo').points=100000;});
+  await page.waitForTimeout(80);assert.ok(await page.locator('[data-buy="weapon:barrett"]').isDisabled());
+  await page.evaluate(()=>{const g=window.__DEADZONE__,p=g.sim.players.get('solo');g.sim.expandForest(11);const c=g.sim.forest.caches(g.sim.claimedCaches).find(c=>c.blueprint==='pbs1');p.x=c.x;p.z=c.z+1.1;g.sim.time+=1;g.sim.interact(p);p.x=-18;p.z=15;p.points=6000;});
+  await page.waitForFunction(()=>!document.querySelector('[data-buy="weapon:pbs1"]').disabled);
   await page.locator('[data-buy="weapon:pbs1"]').click();
-  await page.waitForFunction(() =>
-    window.__DEADZONE__.sim.players.get('solo').unlockedWeapons.includes('pbs1'),
-  );
-  assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').points), 0);
-  assert.equal(
-    await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').inventory[0].id),
-    'vx9',
-  );
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('[data-item="weapon:pbs1"] .shop-card-footer strong')
-        .textContent.replace(/[,\s]/g, '') === '2400PTS',
-  );
-  assert.match(await pbsCard.innerText(), /2,?400 PTS/);
-  const paused = await page.evaluate(() => window.__DEADZONE__.sim.time);
-  await page.waitForTimeout(180);
-  assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.time), paused);
-  await page.keyboard.press('KeyB');
-  await page.waitForFunction(
-    () => document.pointerLockElement !== null && !window.__DEADZONE__.paused,
-  );
-  await page.evaluate(() => {
-    const p = window.__DEADZONE__.sim.players.get('solo');
-    p.x = -11.2;
-    p.z = 16;
-    p.points = 3000;
-  });
-  await page.keyboard.down('KeyE');
-  await page.waitForTimeout(150);
-  await page.keyboard.up('KeyE');
-  assert.ok(
-    await page.evaluate(() =>
-      window.__DEADZONE__.sim.players.get('solo').unlockedWeapons.includes('raven'),
-    ),
-  );
-  assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').points), 3000);
-  await page.keyboard.press('KeyB');
-  await page.locator('#shop-modal:not(.hidden)').waitFor();
-  await page.locator('[data-buy="weapon:raven"]').click();
-  await page.waitForFunction(() =>
-    window.__DEADZONE__.sim.players.get('solo').inventory.some((i) => i.id === 'raven'),
-  );
-  assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').points), 2000);
-  await page.locator('[data-category="supplies"]').click();
-  await page.locator('[data-buy="armor"]').click();
-  assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').armor), 100);
-  await page.evaluate(() => {
-    const p = window.__DEADZONE__.sim.players.get('solo');
-    p.hp = 35;
-    p.inventory[p.slot].reserve = 0;
-  });
-  await page.waitForTimeout(50);
-  await page.locator('[data-buy="health"]').click();
-  await page.locator('[data-buy="ammo"]').click();
-  assert.equal(await page.evaluate(() => window.__DEADZONE__.sim.players.get('solo').points), 900);
+  await page.waitForFunction(()=>window.__DEADZONE__.sim.players.get('solo').inventory.some(i=>i.id==='pbs1'));
+  assert.equal(await page.evaluate(()=>window.__DEADZONE__.sim.players.get('solo').points),6000-WEAPONS.pbs1.price);
+  const paused=await page.evaluate(()=>window.__DEADZONE__.sim.time);await page.waitForTimeout(120);assert.equal(await page.evaluate(()=>window.__DEADZONE__.sim.time),paused);
+  await page.locator('[data-category="supplies"]').click();await page.locator('[data-buy="armor"]').click();
+  await page.evaluate(()=>{const p=window.__DEADZONE__.sim.players.get('solo');p.hp=35;p.inventory[p.slot].reserve=0;});
+  await page.waitForTimeout(80);await page.locator('[data-buy="health"]').click();await page.locator('[data-buy="ammo"]').click();
+  assert.equal(await page.evaluate(()=>window.__DEADZONE__.sim.players.get('solo').points),4900-WEAPONS.pbs1.price);
   assert.ok(await page.locator('[data-buy="health"]').isDisabled());
   assert.ok(await page.locator('[data-buy="armor"]').isDisabled());
   await page.screenshot({ path: 'test-results/shop.png' });

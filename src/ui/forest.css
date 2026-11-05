@@ -1,0 +1,299 @@
+:root {
+  --lime: #c5b58c;
+  --muted: #a1a695;
+  --line: #c5b58c30;
+  --red: #be7760;
+  color: #ece8db;
+  background: #111910;
+}
+.training-modal {
+  width: min(760px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+}
+.training-modal h2 {
+  font-size: 38px;
+  line-height: 1.05;
+  margin: 18px 0;
+}
+.training-modal .muted {
+  line-height: 1.65;
+  font-size: 13px;
+}
+.training-menu-button {
+  border-left: 2px solid #94a67b;
+}
+.map-modal {
+  width: min(820px, 94vw);
+  max-height: 94vh;
+  overflow: auto;
+}
+.map-modal .muted {
+  font-size: 12px;
+  line-height: 1.6;
+}
+#tactical-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 61vh;
+  border: 1px solid #b5b28b44;
+  cursor: crosshair;
+}
+.menu-actions .secondary-button {
+  padding: 13px 20px;
+  margin-top: 8px;
+}
+.hero-copy {
+  margin-bottom: 20px;
+}
+.screen-shade {
+  background:
+    linear-gradient(90deg, #0b130fee 0%, #0e1815d9 29%, #101b1150 65%, #0e191044),
+    linear-gradient(0deg, #0b110fe8, transparent 45%, #0b110f55);
+}
+.menu {
+  padding-top: 25px;
+}
+.hero h1 {
+  font-family: Impact, 'Arial Narrow', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.hero h1 span {
+  -webkit-text-stroke: 0;
+  color: #e4e0ce;
+  opacity: 0.6;
+}
+.warning-label {
+  color: #c9b990;
+}
+.warning-label::after {
+  content: 'THE LOST FOREST';
+  display: block;
+  font: 13px var(--mono);
+  letter-spacing: 5px;
+  margin-top: 13px;
+  color: #d6c7a5;
+}
+.deploy-button {
+  background: #bcae85;
+  color: #192116;
+}
+.deploy-button:hover {
+  background: #d4c599;
+}
+.secondary-button {
+  background: #1e2b20b0;
+  border-color: #abb19436;
+}
+.secondary-button:hover {
+  background: #354331;
+  border-color: #acb18a;
+}
+.operation-card {
+  background: linear-gradient(145deg, #202d23ed, #111b17e8);
+  border-color: #b5b28b42;
+  box-shadow: 0 15px 60px #0003;
+}
+.forest-map {
+  height: 210px;
+  margin: 10px 0;
+  background: repeating-radial-gradient(
+    ellipse at 50% 55%,
+    transparent 0 19px,
+    #bfc49c12 20px 21px
+  );
+  position: relative;
+}
+.forest-map svg {
+  height: 100%;
+  width: 100%;
+}
+.forest-map text {
+  font:
+    8px Consolas,
+    monospace;
+  fill: #bfc4a8;
+  letter-spacing: 2px;
+}
+.forest-map .map-camp {
+  fill: #bdb088;
+  stroke: #efe3ba;
+}
+.modal,
+.shop-modal,
+.skin-modal {
+  background: linear-gradient(135deg, #202b20f8, #111a15fc);
+  border-color: #b5b28b42;
+  box-shadow: 0 25px 100px #0009;
+}
+.primary {
+  background: #bdaf87;
+  color: #182015;
+}
+.outline {
+  border-color: #c5b58c55;
+  background: #1d2a1c88;
+}
+.outline:hover {
+  background: #46513b;
+}
+.shop-card,
+.index-card {
+  background: #19241bdd;
+  border-color: #b5b28b33;
+}
+.shop-tabs button.selected {
+  color: #dbcca6;
+  border-color: #d3c397;
+}
+.health-track i {
+  background: #b5bd8c;
+}
+.sector-info {
+  text-shadow: 0 2px 10px #000;
+}
+.forest-status {
+  position: absolute;
+  top: 108px;
+  left: 34px;
+  max-width: 360px;
+  color: #e3dfca;
+  font: 10px var(--mono);
+  line-height: 1.9;
+  letter-spacing: 0.7px;
+  text-shadow: 0 2px 4px #000;
+}
+.forest-status strong {
+  font-weight: normal;
+  color: #c7ba95;
+}
+.survival-kit {
+  position: absolute;
+  left: 34px;
+  bottom: 185px;
+  color: #e8e3ce;
+  font: 10px var(--mono);
+  line-height: 2;
+  text-shadow: 0 2px 4px #000;
+}
+.survival-kit kbd {
+  font: inherit;
+  color: #cebf91;
+}
+.survival-kit .materials {
+  color: #b9bd9d;
+  font-size: 10px;
+}
+.craft-modal {
+  width: min(1120px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 32px;
+}
+.craft-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  margin: 12px 0 20px;
+}
+.craft-heading h2 {
+  font-size: clamp(24px, 3vw, 38px);
+  line-height: 1.05;
+  margin-bottom: 12px;
+}
+.craft-heading p {
+  max-width: 580px;
+  line-height: 1.6;
+  font-size: 12px;
+}
+.craft-resources {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px 25px;
+  align-content: center;
+  font: 11px var(--mono);
+  color: var(--muted);
+}
+.craft-resources strong {
+  display: block;
+  font-size: 25px;
+  color: #e1d4ad;
+}
+.craft-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.craft-card {
+  border: 1px solid #b5b28b36;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  background: #0e181366;
+}
+.craft-card h3 {
+  font-size: 14px;
+  margin: 13px 0 4px;
+}
+.craft-card p {
+  min-height: 40px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.craft-cost {
+  font: 11px var(--mono);
+  color: #d7c497;
+  margin: auto 0 14px;
+}
+.craft-reason {
+  font-size: 10px;
+  color: #b9b49a;
+  margin-top: 8px;
+  min-height: 12px;
+}
+.menu-footer {
+  color: #9caa91;
+}
+.model-stage {
+  background: radial-gradient(ellipse at 50% 40%, #63705288, #202d2288 62%, #0d1812d9);
+}
+.armory-button {
+  border-left-color: #b5a781;
+}
+@media (max-width: 900px) {
+  .craft-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .forest-status {
+    font-size: 9px;
+    top: 95px;
+    left: 20px;
+  }
+  .survival-kit {
+    left: 20px;
+    font-size: 9px;
+    bottom: 158px;
+  }
+}
+@media (max-width: 600px) {
+  .craft-grid {
+    grid-template-columns: 1fr;
+  }
+  .craft-heading {
+    display: block;
+  }
+  .craft-resources {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 20px 0;
+  }
+  .craft-modal {
+    padding: 22px;
+  }
+  .forest-status {
+    max-width: 200px;
+  }
+}

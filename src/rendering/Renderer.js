@@ -4,6 +4,8 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { chapterDefinition } from '../../shared/Chapters.js';
+import { forestWeather } from '../../shared/Forest.js';
 
 export class Renderer {
   constructor(canvas, settings) {
@@ -12,7 +14,7 @@ export class Renderer {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x111b19);
     this.scene.fog = new THREE.FogExp2(0x17241e, 0.027);
-    this.camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.07, 110);
+    this.camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.07, 180);
     this.camera.rotation.order = 'YXZ';
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -20,7 +22,7 @@ export class Renderer {
       powerPreference: 'high-performance',
     });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.4;
+    this.renderer.toneMappingExposure = 1.18;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.scene.add(new THREE.HemisphereLight(0xbacfc1, 0x18241c, 1.8));
     const sun = new THREE.DirectionalLight(0xc1d8ce, 2.2);
@@ -40,6 +42,14 @@ export class Renderer {
     this.sun = sun;
     this.flash = new THREE.PointLight(0xffb56c, 0, 8, 2);
     this.scene.add(this.flash);
+    this.flashlight = new THREE.SpotLight(0xfff0d5, 0, 65, 0.42, 0.5, 1);
+    this.flashlight.castShadow = true;
+    this.flashlight.shadow.mapSize.set(1024, 1024);
+    this.flashlight.shadow.camera.near = 0.1;
+    this.flashlight.shadow.camera.far = 65;
+    this.flashlight.shadow.bias = -0.00015;
+    this.flashlight.shadow.normalBias = 0.015;
+    this.scene.add(this.flashlight, this.flashlight.target);
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.28, 0.5, 1.35);
@@ -104,6 +114,18 @@ export class Renderer {
     this.viewmodelCamera.fov = settings.viewmodelFov;
     this.viewmodelCamera.updateProjectionMatrix();
   }
+  setChapter(number) {
+    const chapter = chapterDefinition(number);
+    this.scene.background.setHex(chapter.background);
+    this.scene.fog.color.setHex(chapter.fog);
+    this.scene.fog.density = chapter.outdoor ? 0.021 : 0.027;
+    this.sun.color.setHex(chapter.light);
+    for (const light of this.scene.children)
+      if (light.isHemisphereLight) {
+        light.color.setHex(chapter.light);
+        light.groundColor.setHex(chapter.fog);
+      }
+  }
   render(dt, showWeapon) {
     this.frameAverage += (dt * 1000 - this.frameAverage) * 0.02;
     if (this.settings.dynamicResolution) {
@@ -122,6 +144,36 @@ export class Renderer {
       this.renderer.render(this.viewmodelScene, this.viewmodelCamera);
       this.renderer.autoClear = true;
     }
+  }
+  updateForest(time, seed, player = null) {
+    const w = forestWeather(seed, time),
+      day = w.daylight;
+    const fog = new THREE.Color(0x0a1412)
+      .lerp(new THREE.Color(0x3b4b40), day * 0.6)
+      .multiplyScalar(1 - w.rain * 0.25);
+    this.scene.background.copy(fog);
+    this.scene.fog.color.copy(fog);
+    this.scene.fog.density = 0.018 + w.rain * 0.009 + (1 - day) * 0.006;
+    this.sun.color.setHex(w.rain > 0.5 ? 0xb7c5bd : 0xffd7a2);
+    this.sun.intensity = 0.09 + day * 0.95 + (w.thunder ? 1.6 : 0);
+    for (const light of this.scene.children)
+      if (light.isHemisphereLight) {
+        light.color.setHex(0xbdcec5);
+        light.groundColor.setHex(0x263326);
+        light.intensity = 0.26 + day * 0.66;
+      }
+    const x = player?.x ?? 0,
+      z = player?.z ?? 0;
+    this.sun.position.set(x - 25, 38, z + 20);
+    this.sun.target.position.set(x, 0, z);
+    this.sun.shadow.camera.far = 100;
+    this.sun.shadow.camera.updateProjectionMatrix();
+    this.flashlight.intensity =
+      player?.flashlight && !player.downed && !player.eliminated ? 180 : 0;
+    this.flashlight.position.copy(this.camera.position).add(new THREE.Vector3(0.12, -0.15, 0));
+    this.flashlight.target.position
+      .copy(this.camera.position)
+      .add(this.camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(20));
   }
   dispose() {
     removeEventListener('resize', this.resize);
